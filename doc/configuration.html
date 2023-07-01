@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="generator" content="pandoc">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>Configuration directives</title>
+  <style type="text/css">code{white-space: pre;}</style>
+  <!--[if lt IE 9]>
+    <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+</head>
+<body>
+<header>
+<h1 class="title">Configuration directives</h1>
+</header>
+<table>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Key</th>
+<th style="text-align: left;">Value type</th>
+<th style="text-align: left;">Default value</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">default_charset</td>
+<td style="text-align: left;">string</td>
+<td style="text-align: left;">utf-8</td>
+<td style="text-align: left;">Default encoding for new files</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">default_indent_size</td>
+<td style="text-align: left;">integer</td>
+<td style="text-align: left;">4</td>
+<td style="text-align: left;">Default number of spaces of a level of indentation for new files</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">default_indent_style</td>
+<td style="text-align: left;">tab, space</td>
+<td style="text-align: left;">tab</td>
+<td style="text-align: left;">Default type of indentation for new files</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">default_line_ending</td>
+<td style="text-align: left;">crlf, lf, cr</td>
+<td style="text-align: left;">crlf</td>
+<td style="text-align: left;">Default line ending for new files</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">exit_on_last_close</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;">true</td>
+<td style="text-align: left;">When the last document is closed, exit the application (true) or remain open (false)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">notebook_style</td>
+<td style="text-align: left;">top, bottom, left, right, fixed width, multiline</td>
+<td style="text-align: left;">bottom multiline</td>
+<td style="text-align: left;">Style and alignment of notebook tabs</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">session_mode</td>
+<td style="text-align: left;">never, when_empty, always</td>
+<td style="text-align: left;">never</td>
+<td style="text-align: left;">Tells when files opened at last session should or shouldn't be reloaded (see below)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">single_instance</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;">true</td>
+<td style="text-align: left;">Make sure a single instance is running (true) or allow multiple instances running at the same time (false)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">toolbar_style</td>
+<td style="text-align: left;">icon, text, text single line, horizontal, vertical, top, bottom, left, right</td>
+<td style="text-align: left;">horizontal top icon text</td>
+<td style="text-align: left;">Style and alignment of the toolbar</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">window_mode</td>
+<td style="text-align: left;">sdi, mdi, notebook, auinotebook</td>
+<td style="text-align: left;">auinotebook</td>
+<td style="text-align: left;">Windowing mode (see below)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">workspace_root_indicators</td>
+<td style="text-align: left;">string</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;">comma-separated list of file names which, when found, indicates the possible root of a project workspace</td>
+</tr>
+</tbody>
+</table>
+<h2 id="session-modes">Session modes</h2>
+<ul>
+<li>never: never reload files opened at last session (default)</li>
+<li>always: always reload files opened at last session</li>
+<li>when_empty: reload files opened at last session only when no file is specified on the command-line</li>
+</ul>
+<h2 id="window-modes">Window modes</h2>
+<ul>
+<li>sdi: single document interface, a completely different and independant window for each file</li>
+<li>mdi: multiple document interface, a small window for each file, where all small windows stay inside a single main window</li>
+<li>notebook: each file in its own tab, in the same window</li>
+<li>auinotebook: each file in its own tab, in the same window, with advanced tabs interface (allows to move tabs, split, close button, etc.)</li>
+</ul>
+</body>
+</html>

@@ -1,0 +1,12 @@
+obj/
+objd/
+test*
+temp*
+tmp*
+*.log
+*.txt
+*.exe
+*.dll
+*.a
+*.po
+*.mo

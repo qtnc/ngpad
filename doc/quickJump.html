@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="generator" content="pandoc">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>Quick jump</title>
+  <style type="text/css">code{white-space: pre;}</style>
+  <!--[if lt IE 9]>
+    <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+</head>
+<body>
+<header>
+<h1 class="title">Quick jump</h1>
+</header>
+<h2 id="general-syntax">General syntax</h2>
+<p><code>file:command?parameters</code><br />The three parts are optional, but the colon is required in most cases when omiting the file, in order to avoid ambiguity.</p>
+<p>Quick jump is invoked in several cases:</p>
+<ul>
+<li>Through its dedicated dialog box, Ctrl+J</li>
+<li>When evaluating each command-line argument passed to the process</li>
+<li>When pressing Ctrl+Enter in the text area</li>
+</ul>
+<p>Note that it doesn't make sense to omit the file for a command-line argument.</p>
+<h2 id="file-part">File part</h2>
+<p>The file part simply specify which document to open before processing the command.<br />It can be a full path name, but it can also be a partial name and/or a name with jokers <code>*</code> and <code>?</code>.<br />In case of ambiguity, a dialog box asking which file to open will appear.</p>
+<h2 id="command-part">Command part</h2>
+<table>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Syntax</th>
+<th style="text-align: left;">Example</th>
+<th style="text-align: left;">Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><code>n</code></td>
+<td style="text-align: left;">123</td>
+<td style="text-align: left;">go to line n</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>l,c</code></td>
+<td style="text-align: left;">12,34</td>
+<td style="text-align: left;">Go to line l, column c</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>l:c</code></td>
+<td style="text-align: left;">12:34</td>
+<td style="text-align: left;">Go to line l, column c</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>[l,c]</code></td>
+<td style="text-align: left;">[12,34]</td>
+<td style="text-align: left;">Go to line l, column c, alternative syntax</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>[l:c]</code></td>
+<td style="text-align: left;">[12:34]</td>
+<td style="text-align: left;">Go to line l, column c, alternative syntax</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>s-e</code></td>
+<td style="text-align: left;">5-8</td>
+<td style="text-align: left;">Select from beginning of line s to end of line e</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>sl,sc-el,ec</code></td>
+<td style="text-align: left;">5,1-8,36</td>
+<td style="text-align: left;">Select from line sl, column sc to line el, column ec</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>+n</code></td>
+<td style="text-align: left;">+4</td>
+<td style="text-align: left;">Move n lines down</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>-n</code></td>
+<td style="text-align: left;">-4</td>
+<td style="text-align: left;">Move n lines up</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>/regex/options</code></td>
+<td style="text-align: left;">/sometext/i</td>
+<td style="text-align: left;">Find text and move to the first occurence</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong>TODO</strong> <code>s/regex/replacement/options</code></td>
+<td style="text-align: left;">s/oldtext/newtext/i</td>
+<td style="text-align: left;">Replace text</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>#name</code></td>
+<td style="text-align: left;"><code>#NextMethod</code></td>
+<td style="text-align: left;">Move to next marker with name</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>$command</code></td>
+<td style="text-align: left;"><code>$dir *.txt</code></td>
+<td style="text-align: left;">Execute command and display result in a new file</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>$&gt;command</code></td>
+<td style="text-align: left;"><code>$&gt;dir *.txt</code></td>
+<td style="text-align: left;">Execute command and insert result in current file</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>=expression</code></td>
+<td style="text-align: left;"><code>=6*7</code></td>
+<td style="text-align: left;">Execute code and insert result of expression in current file</td>
+</tr>
+</tbody>
+</table>
+<p>Currently unused symbols: <code>%, &amp;, |, ^, &gt;, &lt;, ~, @</code></p>
+<h2 id="parameters-part">Parameters part</h2>
+<p>The last part of the quick jump command is just a list of key/value pairs, which will be put in the properties of the targeted document.<br />Key/value pairs have to be separated by <code>&amp;</code> or <code>;</code>.</p>
+<p>For example, <code>?charset=utf-8</code> will change the encoding of the document to UTF-8.</p>
+<p>Note that menu items and other UI elements may not be updated immediately, and note also that some properties can't be changed after the document is loaded, for example the text editor to use.</p>
+</body>
+</html>

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="generator" content="pandoc">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>.editorconfig support</title>
+  <style type="text/css">code{white-space: pre;}</style>
+  <!--[if lt IE 9]>
+    <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+</head>
+<body>
+<header>
+<h1 class="title">.editorconfig support</h1>
+</header>
+<h2 id="standard-directives">Standard directives</h2>
+<table>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Key</th>
+<th style="text-align: left;">Value type</th>
+<th style="text-align: left;">Default value</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">charset</td>
+<td style="text-align: left;">string</td>
+<td style="text-align: left;">defined in configuration</td>
+<td style="text-align: left;">Character encoding of the file</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">indent_style:</td>
+<td style="text-align: left;">tab, space</td>
+<td style="text-align: left;">defined in configuration</td>
+<td style="text-align: left;">Type of indentation</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">indent_size</td>
+<td style="text-align: left;">integer</td>
+<td style="text-align: left;">defined in configuration</td>
+<td style="text-align: left;">Number of spaces of a level of indentation when indenting with spaces</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">insert_final_newline</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;">false</td>
+<td style="text-align: left;">Whether or not to automatically insert a final blank line at the end of the file</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">line_Ending</td>
+<td style="text-align: left;">crlf, lf, cr</td>
+<td style="text-align: left;">defined in configuration</td>
+<td style="text-align: left;">Type of line ending to use in the file</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">trim_trailing_whitespace</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;">false</td>
+<td style="text-align: left;">Whether to automatically remove blank characters at the end of each line</td>
+</tr>
+</tbody>
+</table>
+<h2 id="non-standard-directives">Non-standard directives</h2>
+<table>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Key</th>
+<th style="text-align: left;">Value type</th>
+<th style="text-align: left;">Default value</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">block_type</td>
+<td style="text-align: left;">indentation, brace, xml</td>
+<td style="text-align: left;">indentation</td>
+<td style="text-align: left;">Way to delimit blocks of code, for use with tree-based navigation with Alt+arrow keys</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">camel_case_words</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;">true</td>
+<td style="text-align: left;">Whether to handle camel case words when moving the cursor by word with Ctrl+Left/Right</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">editor</td>
+<td style="text-align: left;">raw, rich1, rich2</td>
+<td style="text-align: left;">rich2</td>
+<td style="text-align: left;">Type of text editor to use</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">include</td>
+<td style="text-align: left;">string</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;">Another configuration file to include in place. Path is always relative to the current file. Can be repeated multiple times.</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">line_wrap</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;">false</td>
+<td style="text-align: left;">Whether to automatically wrap long lines (true), or use horizontal scrollbar (false)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">marker_type</td>
+<td style="text-align: left;">none, regex, markdown</td>
+<td style="text-align: left;">none</td>
+<td style="text-align: left;">Type of marker, used for F2/Shift+F2 navigation and in the tree jump list</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">plugin</td>
+<td style="text-align: left;">string</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;">Name of a plugin to load, whether a DLL without extension or a name that will be passed to lua require() function. Can be repeated multiple times.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">spell_check</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;">false</td>
+<td style="text-align: left;">Activate spell check; editor must be rich2</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">spell_check_language</td>
+<td style="text-align: left;">string</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;">Language of the spell checker</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">unindent_with_backspace</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;">false</td>
+<td style="text-align: left;">Effect when pressing backspace at the beginning of the line: unindent one level (true) or erase to previous line (false)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">word_separators</td>
+<td style="text-align: left;">string</td>
+<td style="text-align: left;">native</td>
+<td style="text-align: left;">Characters to use as word separators, affect the behavior of Ctrl+Left/Right; the native behavior of the underlying control is taken unmodified if set to &quot;native&quot; or empty string.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="editor-type">Editor type</h2>
+<ul>
+<li>raw: very fast in loading big files, but don't allow any formatting</li>
+<li>rich1: old version of rich text field, slower but allow formatting</li>
+<li>rich2: rich text field, slower but allows formatting</li>
+<li><strong>TODO</strong> stc: scintilla text editor, fast and good formatting, but no advanced keyboard navigation and not accessible to screen readers</li>
+</ul>
+</body>
+</html>
