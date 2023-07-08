@@ -47,8 +47,6 @@ int ReplaceAllInText (wxString& text, size_t delta, const std::vector<size_t>& a
 
 class FindReplaceDialog: public wxDialog {
 private:
-static std::vector<FindReplaceInfo> history;
-
 wxComboBox *find, *replace;
 wxTextCtrl *glob, *rootDir;
 wxCheckBox *regex, *icase, *wholeWord, *regDotAll, *regUnicode;
@@ -60,6 +58,7 @@ struct TextView* view;
 std::unique_ptr<wxTimer> timer;
 FindReplaceInfo info;
 std::vector<FindResultInfo> results;
+std::vector<FindReplaceInfo> history;
 
 public:
 FindReplaceDialog (wxWindow* parent, const FindReplaceInfo& value, TextView* view = nullptr);
@@ -78,6 +77,8 @@ void UpdateEnabledCheckboxesAndStartTimer (wxEvent& e) { UpdateEnabledCheckboxes
 void OnTimerNotify (wxTimerEvent& e) { UpdateFindResults();  }
 void OnFoundItemActivate (struct wxTreeEvent& e);
 void OnFoundItemCheck (const struct wxTreeItemId& treeId, bool checked);
+bool LoadHistory ();
+bool SaveHistory ();
 };
 
 #endif

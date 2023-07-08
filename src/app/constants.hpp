@@ -6,11 +6,11 @@
 #define APP_DISPLAY_NAME APP_NAME
 #define APP_WEBSITE_URL "http://quentinc.net/"
 #define APP_COPYRIGHT_INFO "Copyright © 2023"
-#define APP_VERSION_STRING "2023.6.12"
+#define APP_VERSION_STRING "2023.7.8"
 
 #define CONFIG_FILENAME "config/config.ini"
 #define SESSION_FILENAME "config/session.ini"
-#define SR_HISTORY_FILENAME "config/find-replace-history.ini"
+#define FIND_REPLACE_HISTORY_FILENAME "config/find-replace-history.ini"
 #define EDITORCONFIG_ROOT_FILENAME "config/editorconfig.ini"
 #define EDITORCONFIG_FILENAME ".editorconfig"
 #define LUA_INIT_SCRIPT_FILENAME "init.lua"

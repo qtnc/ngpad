@@ -10,3 +10,5 @@ tmp*
 *.a
 *.po
 *.mo
+*.zip
+config/find-replace-history.ini

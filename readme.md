@@ -17,8 +17,8 @@ Main distinctive features of NGPad includes :
 * Customize the editor and add new features on your own with the integrated lua scripting
 
 # Download (for users)
-
-No ready-to-use download yet
+You can download the latest version from this link, version 2023.7.8:
+http://vrac.quentinc.net/NGPad.zip
 
 # Documentation (for users)
 You can find documentation in the doc directory. Currently these documents are available:

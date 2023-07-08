@@ -9,12 +9,13 @@
 #include <wx/dir.h>
 #include <wx/dirdlg.h>
 #include <wx/treectrl.h>
+#include <wx/stream.h>
+#include <wx/stdstream.h>
+#include <wx/wfstream.h>
 #include "../common/LiveRegion.hpp"
 #include "../common/pcre2cpp.hpp"
 #include "../common/println.hpp"
 
-
-std::vector<FindReplaceInfo> FindReplaceDialog::history;
 
 void LoadEditorConfig (Properties& properties, const wxString& filename);
 bool LoadFile (const wxString& filename, wxString& text, Properties& properties);
@@ -62,6 +63,7 @@ find(nullptr), replace(nullptr), glob(nullptr), rootDir(nullptr), rootDirBrowse(
 timer = std::make_unique<wxTimer>(this, wxID_ANY);
 auto topSizer = new wxBoxSizer(wxVERTICAL);
 
+LoadHistory();
 std::vector<wxString> finds, replaces;
 for (int i=history.size() -1; i>=0; i--) {
 auto& h = history[i];
@@ -162,6 +164,8 @@ Destroy();
 void FindReplaceDialog::OnOK (wxCommandEvent& e) {
 FindReplaceInfo info = GetValue();
 history.emplace_back(info);
+if (history.size()>100) history.erase(history.begin());
+SaveHistory();
 
 if (view && !(info.flags&FRI_MULTIPLE)) {
 view->Activate();
@@ -454,4 +458,47 @@ return r.getReplacement(replace);
 else return r.group(0);
 });
 return count;
+}
+
+bool FindReplaceDialog::LoadHistory () {
+wxLogNull logNull;
+wxString path = wxGetApp() .FindAppFile(FIND_REPLACE_HISTORY_FILENAME);
+if (path.empty()) return false;
+wxFileInputStream fIn(path);
+wxBufferedInputStream bIn(fIn);
+wxStdInputStream in(bIn);
+Properties data;
+data.load(in);
+history.clear();
+for (int i=1; data.contains("find" + std::to_string(i)); i++) {
+std::string I = std::to_string(i);
+history.emplace_back();
+auto& info = history.back();
+info.find = U(data.get("find" + I, ""));
+info.replace = U(data.get("replace" +I, ""));
+info.glob = U(data.get("glob" +I, ""));
+info.rootDir = U(data.get("rootDir" +I, ""));
+info.flags = data.get("flags" +I, 0);
+}
+return true;
+}
+
+bool FindReplaceDialog::SaveHistory () {
+wxLogNull logNull;
+Properties data;
+int i = 0;
+for (auto& info: history) {
+std::string I = std::to_string(++i);
+#define D(N) if (!info.N.empty()) data.put(#N +I, U(info.N));
+D(find) D(replace) D(glob) D(rootDir)
+#undef D
+if (info.flags) data.put("flags" +I, info.flags);
+}
+wxString path = wxGetApp() .GetAppDir() + "/" FIND_REPLACE_HISTORY_FILENAME;
+wxFileOutputStream fOut(path);
+if (!fOut.IsOk()) return false;
+wxBufferedOutputStream bOut(fOut);
+wxStdOutputStream out(bOut);
+data.save(out);
+return true;
 }
