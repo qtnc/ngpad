@@ -10,7 +10,7 @@
 #include <wx/cmdproc.h>
 #include <wx/process.h>
 #include "../common/println.hpp"
-#include "TestPopup.hpp"
+//#include "TestPopup.hpp"
 
 wxIMPLEMENT_DYNAMIC_CLASS(TextView, wxView);
 
@@ -263,8 +263,15 @@ case IDM_SHOW_PANE: OnShowLateralPane(); break;
 case IDM_SWITCH_PANE: OnSwitchPane(); break;
 #ifdef DEBUG
 case IDM_TEST: {
-auto tp = new TestPopup(GetFrame());
+//auto tp = new TestPopup(GetFrame());
+auto e = dynamic_cast<wxTextCtrl*>(editor);
+long start, end;
+e->GetSelection(&start, &end);
+wxString sel1 = e->GetRange(start, end);
+wxString sel2 = e->GetStringSelection();
 Beep(800, 120);
+Beep(600, 120);
+wxMessageBox(sel1, sel2, wxICON_INFORMATION);
 }break;
 #endif
 default: return false;

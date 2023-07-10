@@ -99,10 +99,11 @@ public:
 V0(Copy) V0(Cut) V0(Paste) V0(Undo) V0(Redo)
 C0(bool, CanUndo) C0(bool, CanRedo)
 C0(long, GetInsertionPoint) M1(void, SetInsertionPoint, long) 
+C0(wxString, GetStringSelection) C2(wxString, GetRange, long, long)
 C1(int, GetLineLength, long) C1(wxString, GetLineText, long)
 C3(bool, PositionToXY, long, long*, long*) C2(long, XYToPosition, long, long) C0(long, GetLastPosition) M1(void, ShowPosition, long)
 C0(bool, IsModified) C0(bool, IsEditable) M1(void, SetEditable, bool)
-M1(bool, ProcessEvent, wxEvent&) C0(wxString, DoGetValue) 
+M1(bool, ProcessEvent, wxEvent&) C0(wxString, DoGetValue) C0(wxString, GetValue)
 M1(void, WriteText, const wxString&)  M2(void, Remove, long, long)
 M2(bool, GetStyle, long, wxTextAttr&) M1(bool, SetDefaultStyle, const wxTextAttr&) M3(bool, SetStyle, long, long, const wxTextAttr&)
 
