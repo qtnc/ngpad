@@ -206,10 +206,11 @@ template <class F>
 string_type replace (const string_type& subject, size_t startpos, const F& repl) {
 string_type result(subject.data(), startpos);
 while(match(subject, startpos)) {
-size_t nextpos = start();
+size_t nextpos, endpos;
+position(&nextpos, &endpos);
 result.append(subject.data() +startpos, nextpos-startpos);
 result += repl(*this);
-startpos = end();
+startpos = std::max(endpos, nextpos+1);
 }
 result.append(subject.data() +startpos, subjlen-startpos);
 return result;

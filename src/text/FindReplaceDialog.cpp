@@ -407,7 +407,7 @@ if (endLine==std::string::npos) endLine = text.size();
 if (startLine==std::string::npos) startLine = 0;
 wxString replacement = (flags&FRI_REPLACE)? reg.getReplacement(replace) : wxString(wxEmptyString);
 results.emplace_back(x, y, i, j-i, filename, text.substr(startLine, endLine-startLine), reg.group(0), replacement);
-pos = j;
+pos = std::max(j, i+1);
 }
 if (nResults) *nResults = results.size();
 return true;
