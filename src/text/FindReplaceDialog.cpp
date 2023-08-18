@@ -449,13 +449,15 @@ return count;
 
 int FindReplaceInfo::ReplaceAllInText (wxString& text, size_t delta, const std::vector<size_t>& acceptedReplacements) {
 auto reg = CreateRegEx();
-int count = 0, *pCount = &count;
+int count = 0;
 text = reg.replace(text, 0, [&](auto&r){
 if (acceptedReplacements.empty() || acceptedReplacements.end()!=std::find(acceptedReplacements.begin(), acceptedReplacements.end(), delta+r.start())) {
-*pCount++;
+count++;
 return r.getReplacement(replace);
 }
-else return r.group(0);
+else {
+return r.group(0);
+}
 });
 return count;
 }
