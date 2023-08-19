@@ -104,6 +104,9 @@ bool TextView::DoReplace (const std::vector<FindResultInfo>& results) {
 std::vector<size_t> acceptedReplacements;
 for (auto& result: results) if (result.enabled) acceptedReplacements.push_back(result.pos);
 int count = findReplace.ReplaceAllInEditor(GetEditor(), acceptedReplacements);
+wxString resultMsg = U(format(GetTranslation("srSimpleReplaceDone"), count));
+GetStatusBar()->SetStatusText(resultMsg);
+wxGetApp().SayText(resultMsg);
 return count>0;
 }
 

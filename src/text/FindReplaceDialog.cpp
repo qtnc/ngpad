@@ -169,7 +169,7 @@ SaveHistory();
 
 if (view && !(info.flags&FRI_MULTIPLE)) {
 view->Activate();
-view->FindReplace(info, results);
+BellIfFalse(view->FindReplace(info, results));
 }
 else if (info.flags&(FRI_MULTIPLE|FRI_REPLACE)) {
 info.ReplaceAllMultiple(results);
@@ -379,10 +379,21 @@ return totalCount;
 
 bool FindReplaceInfo::FindAllInEditor (std::vector<FindResultInfo>& results, TextEditor* editor, const wxString& filename, bool onlySelection, int* nResults) {
 if (!editor) return false;
-long start=0, end=0;
-if (onlySelection) editor->GetSelection(&start, &end);
-if (start==end) { start=0; end=editor->GetLastPosition(); }
-return FindAllInText(results, editor->GetValue(), filename, start, end, nResults);
+long start=0, end=0, startX=0, startY=0, endX=0, endY=0;
+if (onlySelection) {
+editor->GetSelection(&start, &end);
+editor->PositionToXY(start, &startX, &startY);
+editor->PositionToXY(end, &endX, &endY);
+}
+if (start==end) { 
+start = startX = startY = 0;
+end = editor->GetLastPosition();
+editor->PositionToXY(end, &endX, &endY);
+}
+wxString value = editor->GetValue();
+start = xyToPosition(value, startX, startY);
+end = xyToPosition(value, endX, endY);
+return FindAllInText(results, value, filename, start, end, nResults);
 }
 
 bool FindReplaceInfo::FindAllInFile (std::vector<FindResultInfo>& results, const wxString& filename, int* nResults) {
