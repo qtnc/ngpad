@@ -108,10 +108,16 @@ return count>0;
 }
 
 bool TextView::OpenFindReplaceDialog (int flags) {
+if (findReplaceDialog && flags==findReplace.flags) {
+findReplaceDialog->SetFocus();
+return true;
+}
+if (findReplaceDialog) findReplaceDialog->Destroy();
 findReplace.flags &= ~(FRI_REPLACE | FRI_MULTIPLE);
 findReplace.flags |= flags;
-auto frd = new FindReplaceDialog(GetFrame(), findReplace, this);
-	frd->Show();
+findReplaceDialog = new FindReplaceDialog(GetFrame(), findReplace, this);
+findReplaceDialog->Bind(wxEVT_DESTROY, [this](auto&e){ findReplaceDialog=nullptr; e.Skip(); });
+findReplaceDialog->Show();
 return true;
 }
 

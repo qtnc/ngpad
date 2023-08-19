@@ -15,6 +15,7 @@ wxTreeCtrl* tree = nullptr;
 wxListView* list = nullptr;
 FindReplaceInfo findReplace;
 unsigned char statusBarDisplayModes[4] = { 0, 0, 0, 0 };
+FindReplaceDialog* findReplaceDialog = nullptr;
 
 public:
 TextEditor* GetEditor () { return editor; }
