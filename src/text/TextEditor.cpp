@@ -16,6 +16,41 @@ TextEditor* SetAutoWrap (bool newWrap) override;
 wxWindow* GetEditableWindow () override { return wxTextCtrlBase::GetEditableWindow(); }
 };
 
+struct LTextCtrlTextEditor: TextCtrlTextEditor {
+private:
+wxString value;
+long visibleStart, visibleEnd, visibleLine;
+public:
+LTextCtrlTextEditor (TextView* view, wxWindow* parent, int id, const wxString& text, const wxPoint& pos, const wxSize& size, long flags);
+virtual int GetVisibleLineCount () const { return 10; }
+void SetVisibleValue (const wxString& text) { wxTextCtrlBase::SetValue(text); }
+wxString GetVisibleValue () { return wxTextCtrlBase::GetValue(); }
+void SetValue (const wxString& text) override { value=text; }
+wxString GetValue () const override { return value; }
+void GetSelection (long* start, long* end) const override;
+void SetSelection (long start, long end) override;
+long GetLastPosition () const override;
+long GetInsertionPoint () const override;
+void SetInsertionPoint (long pos) override;
+void SetInsertionPointEnd () override;
+int GetLineLength (long line) const override;
+wxString GetLineText (long line) const override;
+int GetNumberOfLines () const override;
+void SelectAll () override;
+void Remove (long from, long to) override;
+void Replace (long from, long to, const wxString& text) override;
+wxString GetRange (long from, long to) const override;
+bool PositionToXY (long pos, long* x, long* y) const override;
+long XYToPosition (long x, long y) const override;
+virtual void UpdateVisibleArea () {}
+};
+
+LTextCtrlTextEditor::LTextCtrlTextEditor (TextView* view0, wxWindow* parent, int id, const wxString& text, const wxPoint& pos, const wxSize& size, long flags):
+TextCtrlTextEditor(view0, parent, id, wxEmptyString, pos, size, flags),
+value(text), visibleStart(0), visibleEnd(0), visibleLine(0) {
+//todo!
+}
+
 TextCtrlTextEditor::TextCtrlTextEditor (TextView* view0, wxWindow* parent, int id, const wxString& text, const wxPoint& pos, const wxSize& size, long flags) {
 view = view0;
 wxTextCtrl::Create(parent, id, text, pos, size, flags | wxTE_MULTILINE | wxTE_NOHIDESEL | wxVSCROLL | wxTE_PROCESS_TAB | wxTE_PROCESS_ENTER);
@@ -722,10 +757,15 @@ te->EnableProofCheck(proof);
 return te;
 }
 
+static TextEditor* createLTextCtrlTextEditor (TextView& view, wxWindow* parent, Properties& props) {
+return new LTextCtrlTextEditor(&view, parent, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxTE_RICH2);
+}
+
 static void initTextEditorFactories () {
 TextEditor::Register("raw", [](auto& view, auto parent, auto& props){ return createTextCtrlTextEditor(view, parent, props, 0); });
 TextEditor::Register("rich1", [](auto& view, auto parent, auto& props){ return createTextCtrlTextEditor(view, parent, props, wxTE_RICH); });
 TextEditor::Register("rich2", [](auto& view, auto parent, auto& props){ return createTextCtrlTextEditor(view, parent, props, wxTE_RICH2); });
+TextEditor::Register("tlobs", [](auto& view, auto parent, auto& props){ return createLTextCtrlTextEditor(view, parent, props); });
 }
 
 TextEditor* TextEditor::Create (const std::string& name, TextView& view, wxWindow* parent, Properties& props) {
