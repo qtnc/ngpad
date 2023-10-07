@@ -8,7 +8,7 @@ charset | string | defined in configuration | Character encoding of the file
 indent_style: | tab, space | defined in configuration | Type of indentation
 indent_size | integer | defined in configuration  | Number of spaces of a level of indentation when indenting with spaces
 insert_final_newline | boolean | false | Whether or not to automatically insert a final blank line at the end of the file
-line_Ending | crlf, lf, cr | defined in configuration  | Type of line ending to use in the file
+line_Ending | crlf, lf, cr, ls, ps, rs, nel, nul | defined in configuration  | Type of line ending to use in the file
 trim_trailing_whitespace | boolean | false | Whether to automatically remove blank characters at the end of each line
 
 ## Non-standard directives

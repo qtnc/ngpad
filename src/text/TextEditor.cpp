@@ -14,11 +14,19 @@ TextCtrlTextEditor (TextView* view, wxWindow* parent, int id, const wxString& te
 wxControl* GetControl () override { return this; }
 TextEditor* SetAutoWrap (bool newWrap) override;
 wxWindow* GetEditableWindow () override { return wxTextCtrlBase::GetEditableWindow(); }
+#ifdef __WIN32
+void SetValue (const wxString& text) override {
+SetWindowText(GetHWND(), text.wc_str());
+}
+#endif
 };
 
 TextCtrlTextEditor::TextCtrlTextEditor (TextView* view0, wxWindow* parent, int id, const wxString& text, const wxPoint& pos, const wxSize& size, long flags) {
 view = view0;
 wxTextCtrl::Create(parent, id, text, pos, size, flags | wxTE_MULTILINE | wxTE_NOHIDESEL | wxVSCROLL | wxTE_PROCESS_TAB | wxTE_PROCESS_ENTER);
+#ifdef __WIN32
+SendMessage(GetHWND(), 0x150A, 15, 15);
+#endif
 Bind(wxEVT_CHAR_HOOK, &TextEditor::OnCharHook, this);
 Bind(wxEVT_CHAR, &TextEditor::OnChar, this);
 Bind(wxEVT_TEXT_COPY, [&](auto&e){ TextEditor::OnCopy(e); });

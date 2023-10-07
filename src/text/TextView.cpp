@@ -177,7 +177,7 @@ auto [start, end] = editor->GetSelection();
 auto [sx, sy] = editor->PositionToXY(start);
 auto [ex, ey] = editor->PositionToXY(end);
 auto [lx, ly] = editor->PositionToXY(last);
-auto prc = last? 100 * std::max(start, end) / last :0;
+auto prc = last? 100LL * std::max(start, end) / last :0;
 wxString s[3];
 
 switch(statusBarDisplayModes[0]){

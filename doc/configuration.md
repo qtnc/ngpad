@@ -5,7 +5,7 @@ Key | Value type | Default value | Description
 default_charset  | string | utf-8 | Default encoding for new files
 default_indent_size | integer | 4 | Default number of spaces of a level of indentation for new files
 default_indent_style |  tab, space | tab | Default type of indentation for new files
-default_line_ending | crlf, lf, cr | crlf | Default  line ending for new files
+default_line_ending | crlf, lf, cr, ls, ps, rs, nel, nul | crlf | Default  line ending for new files
 exit_on_last_close | boolean | true | When the last document is closed, exit the application (true) or remain open (false)
 notebook_style | top, bottom, left, right, fixed width, multiline | bottom multiline | Style and alignment of notebook tabs
 session_mode | never, when_empty, always | never | Tells when files opened at last session should or shouldn't be reloaded (see below)
