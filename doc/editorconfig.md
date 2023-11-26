@@ -20,7 +20,7 @@ camel_case_words | boolean | true | Whether to handle camel case words when movi
 editor | raw, rich1, rich2 | rich2 | Type of text editor to use
 include | string | | Another configuration file to include in place. Path is always relative to the current file. Can be repeated multiple times.
 line_wrap | boolean | false | Whether to automatically wrap long lines (true), or use horizontal scrollbar (false)
-marker_type | none, regex, markdown | none | Type of marker, used for F2/Shift+F2 navigation and in the tree jump list
+marker_type | none, regex, markdown, xml, html | none | Type of marker, used for F2/Shift+F2 navigation and in the tree jump list
 plugin | string | | Name of a plugin to load, whether a DLL without extension or a name that will be passed to lua require() function. Can be repeated multiple times.
 spell_check | boolean | false | Activate spell check; editor must be rich2
 spell_check_language | string | | Language of the spell checker
@@ -34,4 +34,44 @@ word_separators | string | native | Characters to use as word separators, affect
 - rich2: rich text field, slower but allows formatting
 - **TODO** stc: scintilla text editor, fast and good formatting, but no advanced keyboard navigation and not accessible to screen readers
 
+## Block types
+Indicates how to detect blocks of code. This is most notably used when navigating with Alt+arrow keys.
 
+- brace: a block is delimited with braces `{` `}`
+- indentation: a block is delimited by a number of lines having the same indentation level
+- regex: blocks are detected with regular expressions (see below)
+- xml: a block is given by an XML tag
+
+### Regex blocks
+Use the following directives to configure block detection with regular expressions.
+Block delimiters are always matched line by line.
+
+Key | Value type | Default value | Description
+-----|-----|-----|-----
+block_blank_regex | regex | | Regex denoting the equivalent of a blank line when matched
+block_close_regex | regex | | Regex matching a block closing
+block_open_regex | regex | | Regex matching a block opening
+
+
+## Marker types
+Indicate how to detect markers, which are displayed in the tree jump list, and used when navigating with F2 and Shift+F2 to go to the next or previous marker.
+
+- none: don't use markers; the tree jump list will remain empty and F2/Shift+F2 will not work
+- html: use HTML elements as markers
+- markdown: use markdown-style headings as markers
+- regex: use regular expressions to find out markers, see below
+- xml: use XML elements as markers
+
+### Regex markers
+Use the following directives to configure marker detection with regular expressions
+
+Key | Value type | Default value | Description
+-----|-----|-----|-----
+marker_branch_regex | regex | | Regex to find out the name of the marker, for blocks that can be nested (branch nodes)
+marker_branch_display_name_index | integer | 1 | 1-based capturing group index of the branch regex to be used as the name displayed in the tree jump list
+marker_branch_name_index | integer | 1 | 1-based capturing group index of the branch regex to be used in find commands such as in quick jump
+marker_exclude_regex | regex | | When a marker is matched by branch or leaf regex, skip/ignore it if it is also matched by this exclusion regex
+marker_leaf_regex | regex | | Regex to find out the name of the marker, for blocks that cannot be nested (leaf nodes)
+marker_leaf_display_name_index | integer | 1 | 1-based capturing group index of the leaf regex to be used as the name displayed in the tree jump list
+marker_leaf_name_index | integer | 1 | 1-based capturing group index of the leaf regex to be used in find commands such as in quick jump
+marker_split_regex  | regex | | Regex used to split potential markers

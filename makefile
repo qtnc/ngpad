@@ -26,7 +26,7 @@ CXX=g++
 WINDRES=windres
 WINDRESFLAGS=$(addprefix -D,$(DEFINES)) -I"$(dir $(shell where $(WINDRES)))..\i686-w64-mingw32\include"
 CXXFLAGS=-std=gnu++17 -Wextra $(addprefix -D,$(DEFINES)) -mthreads
-LDFLAGS=-L. -lpcre2-8 -lpcre2-16 -lwxbase33u$(NAME_SUFFIX) -lwxmsw33u$(NAME_SUFFIX)_core -lwxmsw33u$(NAME_SUFFIX)_aui -lwxbase33u$(NAME_SUFFIX)_xml -lwxbase33u$(NAME_SUFFIX)_net -lwxmsw33u$(NAME_SUFFIX)_webview -lfmt -lole32 -loleaut32 -loleacc -llua -mthreads -mwindows -Wl,--allow-multiple-definition
+LDFLAGS=-L. -lpcre2-8 -lpcre2-16 -lwxbase33u$(NAME_SUFFIX) -lwxmsw33u$(NAME_SUFFIX)_core -lwxmsw33u$(NAME_SUFFIX)_aui -lwxbase33u$(NAME_SUFFIX)_xml -lwxbase33u$(NAME_SUFFIX)_net -lwxmsw33u$(NAME_SUFFIX)_webview -lfmt -lole32 -loleaut32 -loleacc -llua -ltidy -mthreads -mwindows -Wl,--allow-multiple-definition
 
 SRCS=$(wildcard src/common/*.cpp) $(wildcard src/app/*.cpp) $(wildcard src/console/*.cpp) $(wildcard src/text/*.cpp) $(wildcard src/lua/binding/*.cpp) $(wildcard src/lua/app/*.cpp)
 RCSRCS=$(wildcard src/app/*.rc)
