@@ -382,7 +382,7 @@ if (!editor) return false;
 long start=0, end=0, startX=0, startY=0, endX=0, endY=0;
 if (onlySelection) {
 editor->GetSelection(&start, &end);
-if (start<end) std::swap(start, end);
+if (start>end) std::swap(start, end);
 editor->PositionToXY(start, &startX, &startY);
 editor->PositionToXY(end, &endX, &endY);
 }

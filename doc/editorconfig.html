@@ -279,7 +279,7 @@ scrollbar (false)</td>
 </tr>
 <tr class="even">
 <td>marker_type</td>
-<td>none, regex, markdown</td>
+<td>none, regex, markdown, xml, html</td>
 <td>none</td>
 <td>Type of marker, used for F2/Shift+F2 navigation and in the tree jump
 list</td>
@@ -332,5 +332,144 @@ formatting</li>
 formatting, but no advanced keyboard navigation and not accessible to
 screen readers</li>
 </ul>
+<h2 id="block-types">Block types</h2>
+<p>Indicates how to detect blocks of code. This is most notably used
+when navigating with Alt+arrow keys.</p>
+<ul>
+<li>brace: a block is delimited with braces <code>{</code>
+<code>}</code></li>
+<li>indentation: a block is delimited by a number of lines having the
+same indentation level</li>
+<li>regex: blocks are detected with regular expressions (see below)</li>
+<li>xml: a block is given by an XML tag</li>
+</ul>
+<h3 id="regex-blocks">Regex blocks</h3>
+<p>Use the following directives to configure block detection with
+regular expressions. Block delimiters are always matched line by
+line.</p>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Key</th>
+<th>Value type</th>
+<th>Default value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>block_blank_regex</td>
+<td>regex</td>
+<td></td>
+<td>Regex denoting the equivalent of a blank line when matched</td>
+</tr>
+<tr class="even">
+<td>block_close_regex</td>
+<td>regex</td>
+<td></td>
+<td>Regex matching a block closing</td>
+</tr>
+<tr class="odd">
+<td>block_open_regex</td>
+<td>regex</td>
+<td></td>
+<td>Regex matching a block opening</td>
+</tr>
+</tbody>
+</table>
+<h2 id="marker-types">Marker types</h2>
+<p>Indicate how to detect markers, which are displayed in the tree jump
+list, and used when navigating with F2 and Shift+F2 to go to the next or
+previous marker.</p>
+<ul>
+<li>none: don&#39;t use markers; the tree jump list will remain empty and
+F2/Shift+F2 will not work</li>
+<li>html: use HTML elements as markers</li>
+<li>markdown: use markdown-style headings as markers</li>
+<li>regex: use regular expressions to find out markers, see below</li>
+<li>xml: use XML elements as markers</li>
+</ul>
+<h3 id="regex-markers">Regex markers</h3>
+<p>Use the following directives to configure marker detection with
+regular expressions</p>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Key</th>
+<th>Value type</th>
+<th>Default value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>marker_branch_regex</td>
+<td>regex</td>
+<td></td>
+<td>Regex to find out the name of the marker, for blocks that can be
+nested (branch nodes)</td>
+</tr>
+<tr class="even">
+<td>marker_branch_display_name_index</td>
+<td>integer</td>
+<td>1</td>
+<td>1-based capturing group index of the branch regex to be used as the
+name displayed in the tree jump list</td>
+</tr>
+<tr class="odd">
+<td>marker_branch_name_index</td>
+<td>integer</td>
+<td>1</td>
+<td>1-based capturing group index of the branch regex to be used in find
+commands such as in quick jump</td>
+</tr>
+<tr class="even">
+<td>marker_exclude_regex</td>
+<td>regex</td>
+<td></td>
+<td>When a marker is matched by branch or leaf regex, skip/ignore it if
+it is also matched by this exclusion regex</td>
+</tr>
+<tr class="odd">
+<td>marker_leaf_regex</td>
+<td>regex</td>
+<td></td>
+<td>Regex to find out the name of the marker, for blocks that cannot be
+nested (leaf nodes)</td>
+</tr>
+<tr class="even">
+<td>marker_leaf_display_name_index</td>
+<td>integer</td>
+<td>1</td>
+<td>1-based capturing group index of the leaf regex to be used as the
+name displayed in the tree jump list</td>
+</tr>
+<tr class="odd">
+<td>marker_leaf_name_index</td>
+<td>integer</td>
+<td>1</td>
+<td>1-based capturing group index of the leaf regex to be used in find
+commands such as in quick jump</td>
+</tr>
+<tr class="even">
+<td>marker_split_regex</td>
+<td>regex</td>
+<td></td>
+<td>Regex used to split potential markers</td>
+</tr>
+</tbody>
+</table>
 </body>
 </html>
