@@ -42,7 +42,7 @@ SetSelection(sel);
 
 bool SingleChoiceDialog::SetSelection (int sel) {
 for (size_t i=0, n=list->GetCount(); i<n; i++) {
-int x = reinterpret_cast<int>(list->GetClientData(i));
+int x = reinterpret_cast<intptr_t>(list->GetClientData(i));
 if (x==sel) {
 list->SetSelection(i);
 return true;
@@ -52,7 +52,7 @@ return false;
 
 int SingleChoiceDialog::GetSelection () {
 int i = list->GetSelection();
-if (i>=0) i = reinterpret_cast<int>( list->GetClientData(i) );
+if (i>=0) i = reinterpret_cast<intptr_t>( list->GetClientData(i) );
 return i;
 }
 

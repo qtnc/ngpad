@@ -5,6 +5,7 @@ extern "C" {
 #include "lua/lualib.h"
 #include "lua/lauxlib.h"
 }
+#include<optional>
 #include "../binding/luabinding.hpp"
 #include "../../common/wxUtils.hpp"
 

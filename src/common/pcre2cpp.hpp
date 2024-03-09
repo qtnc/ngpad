@@ -15,8 +15,8 @@ inline pcre2_match_data_##N* pcre2_match_data_create_from_pattern (pcre2_code_##
 inline void pcre2_code_free (pcre2_code_##N* code) { pcre2_code_free_##N(code); } \
 inline void pcre2_match_data_free (pcre2_match_data_##N* data) { pcre2_match_data_free_##N(data); } \
 inline pcre2_code_##N* pcre2_code_copy (pcre2_code_##N* code) { return pcre2_code_copy_##N(code); } \
-inline int pcre2_substring_length_bynumber (pcre2_match_data_##N* data, uint32_t number, uint32_t* length) { return pcre2_substring_length_bynumber_##N(data, number, length); } \
-inline int pcre2_substring_length_byname (pcre2_match_data_##N* data, const C* name, uint32_t* length) { return pcre2_substring_length_byname_##N(data, reinterpret_cast<PCRE2_SPTR##N>(name), length); } \
+inline int pcre2_substring_length_bynumber (pcre2_match_data_##N* data, uint32_t number, size_t* length) { return pcre2_substring_length_bynumber_##N(data, number, length); } \
+inline int pcre2_substring_length_byname (pcre2_match_data_##N* data, const C* name, size_t* length) { return pcre2_substring_length_byname_##N(data, reinterpret_cast<PCRE2_SPTR##N>(name), length); } \
 inline int pcre2_substring_copy_bynumber (pcre2_match_data_##N* data, uint32_t number, C* buf, size_t* buflen) { return pcre2_substring_copy_bynumber_##N(data, number, reinterpret_cast<PCRE2_UCHAR##N*>(buf), buflen); } \
 inline int pcre2_substring_copy_byname (pcre2_match_data_##N* data, const C* name, C* buf, size_t* buflen) { return pcre2_substring_copy_byname_##N(data, reinterpret_cast<PCRE2_SPTR##N>(name), reinterpret_cast<PCRE2_UCHAR##N*>(buf), buflen); } \
 inline uint32_t pcre2_get_ovector_count (pcre2_match_data_##N* data) { return pcre2_get_ovector_count_##N(data); } \
@@ -185,7 +185,7 @@ string_type getReplacement (const string_type& repl) {
 size_t origStart, origEnd, origLen;
 position(&origStart, &origEnd, 0);
 origLen = origEnd - origStart;
-size_t outLen = std::min(origLen * 2, 1024U);
+size_t outLen = std::min(origLen * 2, 1024UZ);
 char_type out[outLen] = { 0 };
 string_type replacement;
 int result = pcre2_substitute(reg, subject, subjlen, startpos, PCRE2_SUBSTITUTE_MATCHED | PCRE2_SUBSTITUTE_EXTENDED | PCRE2_SUBSTITUTE_REPLACEMENT_ONLY | PCRE2_SUBSTITUTE_OVERFLOW_LENGTH, data, nullptr, repl.data(), repl.size(), out, &outLen);

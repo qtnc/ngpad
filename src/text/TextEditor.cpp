@@ -260,7 +260,7 @@ wxRegEx("^" + indent, wxRE_NEWLINE) .Replace(&text, "");
 Replace(sp, ep, text);
 if (start==end) {
 PushUndoState(new TextReplaced(this, sp, start, oldText, text, TC_POS_END), false);
-SetInsertionPoint(std::max(0UL, start-indent.size()));
+SetInsertionPoint(std::max(0UZ, start-indent.size()));
 } 
 else {
 PushUndoState(new TextReplaced(this, sp, ep, oldText, text, GetSelectionDirection(start, end, anchor)), false);

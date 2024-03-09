@@ -7,6 +7,7 @@
 #include<functional>
 #include<vector>
 #include<unordered_map>
+#include<stdexcept>
 
 int luaL_call (lua_State* L, int nArgs, int nRets);
 void* luaL_checkutype (lua_State* L, int idx, const char* tname);
@@ -806,6 +807,7 @@ return 1;
 };
 
 #ifdef __WIN32
+/*
 template<int START, class R, class... A> struct LuaPushSlot< R (__stdcall*)(A...), void, START> {
 typedef R(*__stdcall Func)(A...);
 template<int... S> static R callNative (sequence<S...> unused, Func func, const std::tuple<typename LuaGetSlot<A>::returnType...>& params) {  
@@ -843,6 +845,7 @@ lua_pushcclosure(L, &wrapper, 1);
 return 1;
 }
 };
+*/
 #endif
 
 template<class T, class... A> struct LuaConstructorWrapper {
