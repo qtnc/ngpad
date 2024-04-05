@@ -1,5 +1,6 @@
 #include "LiveTextAppender.hpp"
 #include "../app/App.hpp"
+#include "../common/println.hpp"
 
 void AdjustLineEnding (wxString& text, int lineEnding);
 unsigned long long mtime ();
@@ -34,6 +35,7 @@ if (thread.joinable()) thread.join();
 }
 
 void LiveTextAppender::Append (const wxString& s, bool say) {
+println("Append: {}", U(s));
 long start, end, l = insertionPoint;
 te->GetSelection(&start, &end);
 te->SetInsertionPoint(insertionPoint);
@@ -94,6 +96,7 @@ out.Flush();
 }
 
 void CommandLiveTextAppender::Run () {
+println("Running live text appender");
 char buf[4096] = {0};
 int i=0;
 auto lastReadTime = mtime();
@@ -120,5 +123,6 @@ Append(s);
 }
 }
 stopped = true;
+println("Live text appender finished");
 }
 
