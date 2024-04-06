@@ -132,7 +132,7 @@ end
 local function fieldtostring (v, ...)
 if istable(v) then
 local mt = getmetatable(v)
-return mt and mt.__tostring and mt.__tostring(t) or table.tostring(t, ...)
+return mt and mt.__tostring and mt.__tostring(v) or table.tostring(v, ...)
 elseif isnumber(v) then return tostring(v)
 else return string.format('%q', v) 
 end end
