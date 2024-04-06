@@ -6,7 +6,7 @@
 #define APP_DISPLAY_NAME APP_NAME
 #define APP_WEBSITE_URL "http://quentinc.net/"
 #define APP_COPYRIGHT_INFO "Copyright © 2023"
-#define APP_VERSION_STRING "2024.2.20"
+#define APP_VERSION_STRING "2024.4.6"
 
 #define CONFIG_FILENAME "config/config.ini"
 #define SESSION_FILENAME "config/session.ini"

@@ -405,14 +405,14 @@ type | integer | true | true | type of the event
 ## EventHandler
 Base class of all elements and controls that can react to events
 
-### eventHandler:bind (type, fromId, toId, handler=event function to call when the event occurrs. The function must always be the last parameter.)
+### eventHandler:bind (type, fromId, toId, handler)
 Bind an event
 
 **Parameters:**
 * type: integer: type of event
 * fromId: integer: minimum ID for which the event must be processed. This parameter can be totally omited.
 * toId: integer: maximum ID for which the event must be processed. This parameter can be totally omited.
-* handler: function: 
+* handler: function: event function to call when the event occurrs. The function must always be the last parameter.
 
 **Returns:**
 * handler: an object that can be passed to unbind() in order to cancel the event
@@ -431,7 +431,7 @@ DOC_CLOSING | integer | type identifier for document closing event, triggered wh
 DOC_CREATED | integer | type identifier for document created event, triggered when a document has been created
 DOC_CREATING | integer | type identifier for document creating event, triggered when a document is about to be created
 DOC_LOADED | integer | type identifier for document loaded event, triggered when a document has been loaded from file
-DOC_LOADING | integer | type identifier for document loading event, triggered when a document is about to be laoded from a file
+DOC_LOADING | integer | type identifier for document loading event, triggered when a document is about to be loaded from a file
 DOC_SAVED | integer | type identifier for document saved event, triggered when a document has been saved to file
 DOC_SAVING | integer | type identifier for document saving event, triggered when a document is about to be saved to file
 
@@ -1412,6 +1412,27 @@ Write a file to disk
 * filename: string: name of the file to write to
 * text: string: text content of the file
 * properties: table: table of properties specifying encoding, line ending, etc.
+
+## json
+JSON parsing library
+
+### json.dump (values...)
+Dump a lua value into JSON
+
+**Parameters:**
+* values...: any: any lua values to convert to JSON
+
+**Returns:**
+* string: the resulting JSON string
+
+### json.load (jsonString...)
+Load JSON data
+
+**Parameters:**
+* jsonString...: string: JSON strings to parse
+
+**Returns:**
+* string: the resulting lua object parsed from JSON
 
 ## string
 Additions and replacements to the standard string lua module

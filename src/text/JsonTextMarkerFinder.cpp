@@ -14,124 +14,140 @@ bool Reset (const wxString& text) override;
 virtual ~JsonTextMarkerFinder () {}
 };
 
-struct JsonSax {
+struct TMJSObj {
+std::string key;
+int index;
+bool array;
+TMJSObj (bool b): key(), index(0), array(b) {}
+std::string nextkey () {
+if (array) return fmt::format("[{}]", index++);
+else return key;
+}
+};
+
+struct TMJsonSax {
 std::vector<TextMarker>& markers;
 std::istream& in;
 int level, lastPos;
-std::string lastKey;
 const std::string& text;
+std::vector<TMJSObj> objstack;
 
-JsonSax (std::vector<TextMarker>& m, std::istream& i, const std::string& t):
-markers(m), in(i), level(-1), lastKey(), lastPos(0), text(t)   {}
+TMJsonSax (std::vector<TextMarker>& m, std::istream& i, const std::string& t):
+markers(m), in(i), level(-1), lastPos(0), text(t)   {}
 
-void addMarker (int start, int end, const std::string& key, const std::string& value, int level) {
-if (level<0 || key.empty()) return;
-std::string kv;
-if (value.empty()) kv = key;
-else kv = key + ": " + value;
+inline void addMarker (int start, int end, const std::string& key, const std::string& value, int level) {
+if (level<0 || objstack.empty()) return;
 size_t column=0, line=0;
 positionToXY(text, start, column, line);
-markers.emplace_back(start, end, line, level, U(key), U(kv) );
+markers.emplace_back(start, end, line+1, level, U(key), U(fmt::format("{}: {}", key, value)) );
 }
 
-int regLastPos () {
+inline int regLastPos () {
 lastPos = in.tellg();
 return lastPos;
+}
+
+inline std::string curkey () {
+return objstack.empty()? "" : objstack.back().nextkey();
 }
 
 bool null () { 
 int start = lastPos;
 int end = regLastPos();
-addMarker(start, end, lastKey, "null", level);
+addMarker(start, end, curkey(), "null", level);
 return true; 
 }
 
 bool boolean (bool val) { 
 int start = lastPos;
 int end = regLastPos();
-addMarker(start, end, lastKey, val?"true":"false", level);
+addMarker(start, end, curkey(), val?"true":"false", level);
 return true; 
 }
 
 bool number_integer (long long val) { 
 int start = lastPos;
 int end = regLastPos();
-addMarker(start, end, lastKey, std::to_string(val), level);
+addMarker(start, end, curkey(), std::to_string(val), level);
 return true; 
 }
 
 bool number_unsigned (unsigned long long val) { 
 int start = lastPos;
 int end = regLastPos();
-addMarker(start, end, lastKey, std::to_string(val), level);
+addMarker(start, end, curkey(), std::to_string(val), level);
 return true; 
 }
 
 bool number_float (double val, const std::string& s) { 
 int start = lastPos;
 int end = regLastPos();
-addMarker(start, end, lastKey, s, level);
+addMarker(start, end, curkey(), s, level);
 return true; 
 }
 
 bool string (const std::string& s) { 
 int start = lastPos;
 int end = regLastPos();
-addMarker(start, end, lastKey, s, level);
+addMarker(start, end, curkey(), s, level);
 return true; 
 }
 
 bool binary (const json::binary_t& val) { 
 int start = lastPos;
 int end = regLastPos();
-addMarker(start, end, lastKey, "binary", level);
+addMarker(start, end, curkey(), fmt::format("binary ({} bytes)", val.size()), level);
 return true; 
 }
 
 bool key (const std::string& s) { 
-lastKey = s;
+objstack.back().key = s;
 return true;
 }
 
 bool start_array (size_t n) { 
 int start = lastPos;
 int end = regLastPos();
-addMarker(start, end, lastKey, "array", level);
+addMarker(start, end, curkey(), "array", level);
+objstack.emplace_back(true);
 level++;
 return true; 
 }
 
 bool end_array () { 
 level--;
+objstack.pop_back();
 return true; 
 }
 
 bool start_object (size_t n) { 
 int start = lastPos;
 int end = regLastPos();
-addMarker(start, end, lastKey, "object", level);
+addMarker(start, end, curkey(), "object", level);
+objstack.emplace_back(false);
 level++;
 return true; 
 }
 
 bool end_object () { 
 level--;
+objstack.pop_back();
 return true; 
 }
 
 bool parse_error (size_t pos, const std::string& token, const std::exception& ex) { 
+addMarker(pos, pos, "ERROR", ex.what(), 0);
 return false; 
 }
 
-};//JsonSax
-
+};//TMJsonSax
 
 
 
 bool JsonTextMarkerFinder::Reset (const wxString& text) {
 std::string utfText = U(text);
 std::istringstream in(utfText);
-JsonSax sax(markers, in, utfText);
+TMJsonSax sax(markers, in, utfText);
 markers.clear();
 json::sax_parse(in, &sax);
 return true;

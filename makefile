@@ -60,5 +60,5 @@ doc/scripting-reference.md: gendoc.lua doc/scripting-reference.mdg $(SRCS)
 	lua gendoc.lua $^ $@
 
 doc/%.html: doc/%.md
-	pandoc -t html5 -f markdown_github+lists_without_preceding_blankline+mmd_title_block --self-contained -o $@ $<
+	pandoc -t html5 -f gfm+lists_without_preceding_blankline+mmd_title_block --standalone -o $@ $<
 

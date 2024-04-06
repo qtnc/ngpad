@@ -3124,6 +3124,28 @@ text, properties)</h3>
 <li>properties: table: table of properties specifying encoding, line
 ending, etc.</li>
 </ul>
+<h2 id="json">json</h2>
+<p>JSON parsing library</p>
+<h3 id="jsondump-values">json.dump (values...)</h3>
+<p>Dump a lua value into JSON</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li>values...: any: any lua values to convert to JSON</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>string: the resulting JSON string</li>
+</ul>
+<h3 id="jsonload-jsonstring">json.load (jsonString...)</h3>
+<p>Load JSON data</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li>jsonString...: string: JSON strings to parse</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>string: the resulting lua object parsed from JSON</li>
+</ul>
 <h2 id="string">string</h2>
 <p>Additions and replacements to the standard string lua module</p>
 <h3 id="stringcapitalize-string">string.capitalize (string)</h3>

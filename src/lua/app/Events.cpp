@@ -114,7 +114,7 @@ Binding::LuaClass<wxEvtHandler>(L, "EventHandler")
 //P type: integer: nil: type of event
 //P fromId: integer: nil: minimum ID for which the event must be processed. This parameter can be totally omited.
 //P toId: integer: nil: maximum ID for which the event must be processed. This parameter can be totally omited.
-//P handler: function: event function to call when the event occurrs. The function must always be the last parameter.
+//P handler: function: nil: event function to call when the event occurrs. The function must always be the last parameter.
 //R handler: an object that can be passed to unbind() in order to cancel the event
 .method("bind", &EvtHandlerBind)
 //M unbind an event previously bount with bind()
@@ -130,7 +130,7 @@ lua_getglobal(L, "Event");
 C(DOC_CREATING) 
 //K integer: type identifier for document created event, triggered when a document has been created
 C(DOC_CREATED)
-//K integer: type identifier for document loading event, triggered when a document is about to be laoded from a file
+//K integer: type identifier for document loading event, triggered when a document is about to be loaded from a file
 C(DOC_LOADING) 
 //K integer: type identifier for document loaded event, triggered when a document has been loaded from file
 C(DOC_LOADED)
