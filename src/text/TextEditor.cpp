@@ -16,6 +16,7 @@ TextEditor* SetAutoWrap (bool newWrap) override;
 wxWindow* GetEditableWindow () override { return wxTextCtrlBase::GetEditableWindow(); }
 #ifdef __WIN32
 void SetValue (const wxString& text) override {
+// Skip all WXWidgets checks regarding line ending. They are unnecessary and hits performences a lot when line ending is correctly configured on the text control.
 SetWindowText(GetHWND(), text.wc_str());
 }
 #endif
@@ -25,6 +26,7 @@ TextCtrlTextEditor::TextCtrlTextEditor (TextView* view0, wxWindow* parent, int i
 view = view0;
 wxTextCtrl::Create(parent, id, text, pos, size, flags | wxTE_MULTILINE | wxTE_NOHIDESEL | wxVSCROLL | wxTE_PROCESS_TAB | wxTE_PROCESS_ENTER);
 #ifdef __WIN32
+// Set line ending correctly so to avoid all WXWidgets checks afterwards
 SendMessage(GetHWND(), 0x150A, 15, 15);
 #endif
 Bind(wxEVT_CHAR_HOOK, &TextEditor::OnCharHook, this);
@@ -337,10 +339,15 @@ x=0;
 auto text = GetLineText(y);
 auto wordSeparators = GetWordSeparators();
 if (wordSeparators.empty() || wordSeparators=="native") return false;
+
 size_t x1 = text.find_first_not_of(wordSeparators, x);
 if (x1!=std::string::npos) x1 = text.find_first_of(wordSeparators, x1);
 if (x1==std::string::npos) x1 = lLen;
-else if (!select) x1++;
+else if (!select) {
+x1 = text.find_first_not_of(wordSeparators, x1);
+if (x1==std::string::npos) x1 = lLen;
+}
+
 if (IsUsingCamelCaseWords()) {
 auto it2 = std::find_if_not(text.begin()+x, text.end(), [](auto c){ return isupper(c); });
 if (it2!=text.end()) it2 = std::find_if(it2, text.end(), [](auto c){ return isupper(c); });
@@ -348,6 +355,7 @@ size_t x2 = it2-text.begin();
 x = std::min(x1, x2);
 }
 else x=x1;
+
 end = XYToPosition(x, y);
 if (select) SetSelection(start, end);
 else SetInsertionPoint(end);
@@ -363,19 +371,30 @@ if (x==0) x = GetLineLength(--y);
 auto text = GetLineText(y);
 auto wordSeparators = GetWordSeparators();
 if (wordSeparators.empty() || wordSeparators=="native") return false;
+
 size_t x1 = text.find_last_not_of(wordSeparators, x -1);
 if (x1==std::string::npos) x1=0;
 x1 = text.find_last_of(wordSeparators, x1);
 if (x1==std::string::npos) x1=0;
 else x1++;
+
 if (IsUsingCamelCaseWords()) {
 auto it2 = find_last_if_not(text.begin(), text.begin()+x -1, text.end(), [](auto c){ return isupper(c); });
 if (it2==text.end()) it2 = text.begin();
 it2 = find_last_if(text.begin(), it2, text.end(), [](auto c){ return isupper(c); });
-size_t x2 = it2==text.end()? 0 : it2-text.begin();
+if (it2==text.end()) it2 = text.begin();
+//Added!
+else {
+it2 = find_last_if_not(text.begin(), it2, text.end(), [](auto c){ return isupper(c); });
+if (it2==text.end()) it2 = text.begin();
+else it2++;
+}
+//End added
+size_t x2 = it2-text.begin();
 x = std::max(x1, x2);
 }
 else x=x1;
+
 end = XYToPosition(x, y);
 if (select) SetSelection(start, end);
 else SetInsertionPoint(end);
