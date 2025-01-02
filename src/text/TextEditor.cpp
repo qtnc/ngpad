@@ -7,6 +7,7 @@
 #include "../app/App.hpp"
 #include "../common/stringUtils.hpp"
 #include <wx/regex.h>
+#include <wx/stc/stc.h>
 
 
 struct TextCtrlTextEditor: TextEditorCtrl<wxTextCtrl> {
@@ -732,6 +733,25 @@ e.Skip();
 break;
 }}
 
+struct STCTextEditor: TextEditorCtrl<wxStyledTextCtrl> {
+STCTextEditor (TextView* view, wxWindow* parent, int id, const wxString& text, const wxPoint& pos, const wxSize& size, long flags);
+wxControl* GetControl () override { return this; }
+TextEditor* SetAutoWrap (bool newWrap) override;
+wxWindow* GetEditableWindow () override { return this; } //wxTextCtrlBase::GetEditableWindow(); }
+void SetValue (const wxString& text) override { wxStyledTextCtrl::SetValue(text); }
+};
+
+STCTextEditor::STCTextEditor (TextView* view0, wxWindow* parent, int id, const wxString& text, const wxPoint& pos, const wxSize& size, long flags) {
+view = view0;
+wxStyledTextCtrl::Create(parent, id, pos, size, flags | wxTE_MULTILINE | wxTE_NOHIDESEL | wxVSCROLL | wxTE_PROCESS_TAB | wxTE_PROCESS_ENTER);
+//Bind(wxEVT_CHAR_HOOK, &TextEditor::OnCharHook, this);
+//Bind(wxEVT_CHAR, &TextEditor::OnChar, this);
+//Bind(wxEVT_TEXT_COPY, [&](auto&e){ TextEditor::OnCopy(e); });
+//Bind(wxEVT_TEXT_CUT, &TextEditor::OnCut, this);
+//Bind(wxEVT_TEXT_PASTE, &TextEditor::OnPaste, this);
+SetValue(text);
+}
+
 void TextEditor::Register (const std::string& name, const TextEditor::Factory& factory) {
 factories[name] = factory;
 }
@@ -749,10 +769,28 @@ te->EnableProofCheck(proof);
 return te;
 }
 
+static TextEditor* createSTCTextEditor (TextView& view, wxWindow* parent, Properties& props) {
+bool wrap = props.get("line_wrap", false);
+long flags = (wrap? wxTE_BESTWRAP : wxHSCROLL | wxTE_DONTWRAP);
+auto te = new STCTextEditor(&view, parent, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, flags);
+return te;
+}
+
+
+TextEditor* STCTextEditor::SetAutoWrap (bool newWrap) {
+auto doc = static_cast<AbstractDocument*>(view->GetDocument());
+auto& props = doc->GetProperties();
+auto te = TextEditor::Create(*view, GetParent(), props);
+TransferCtrlState(*te);
+return te;
+}
+
+
 static void initTextEditorFactories () {
 TextEditor::Register("raw", [](auto& view, auto parent, auto& props){ return createTextCtrlTextEditor(view, parent, props, 0); });
 TextEditor::Register("rich1", [](auto& view, auto parent, auto& props){ return createTextCtrlTextEditor(view, parent, props, wxTE_RICH); });
 TextEditor::Register("rich2", [](auto& view, auto parent, auto& props){ return createTextCtrlTextEditor(view, parent, props, wxTE_RICH2); });
+TextEditor::Register("stc", [](auto& view, auto parent, auto& props){ return createSTCTextEditor(view, parent, props); });
 }
 
 TextEditor* TextEditor::Create (const std::string& name, TextView& view, wxWindow* parent, Properties& props) {
