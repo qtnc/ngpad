@@ -1,165 +1,165 @@
 <!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" lang xml:lang>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
 <head>
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <title>Scripting reference</title>
   <style>
-html {
-color: #1a1a1a;
-background-color: #fdfdfd;
-}
-body {
-margin: 0 auto;
-max-width: 36em;
-padding-left: 50px;
-padding-right: 50px;
-padding-top: 50px;
-padding-bottom: 50px;
-hyphens: auto;
-overflow-wrap: break-word;
-text-rendering: optimizeLegibility;
-font-kerning: normal;
-}
-@media (max-width: 600px) {
-body {
-font-size: 0.9em;
-padding: 12px;
-}
-h1 {
-font-size: 1.8em;
-}
-}
-@media print {
-html {
-background-color: white;
-}
-body {
-background-color: transparent;
-color: black;
-font-size: 12pt;
-}
-p, h2, h3 {
-orphans: 3;
-widows: 3;
-}
-h2, h3, h4 {
-page-break-after: avoid;
-}
-}
-p {
-margin: 1em 0;
-}
-a {
-color: #1a1a1a;
-}
-a:visited {
-color: #1a1a1a;
-}
-img {
-max-width: 100%;
-}
-h1, h2, h3, h4, h5, h6 {
-margin-top: 1.4em;
-}
-h5, h6 {
-font-size: 1em;
-font-style: italic;
-}
-h6 {
-font-weight: normal;
-}
-ol, ul {
-padding-left: 1.7em;
-margin-top: 1em;
-}
-li > ol, li > ul {
-margin-top: 0;
-}
-blockquote {
-margin: 1em 0 1em 1.7em;
-padding-left: 1em;
-border-left: 2px solid #e6e6e6;
-color: #606060;
-}
-code {
-font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
-font-size: 85%;
-margin: 0;
-hyphens: manual;
-}
-pre {
-margin: 1em 0;
-overflow: auto;
-}
-pre code {
-padding: 0;
-overflow: visible;
-overflow-wrap: normal;
-}
-.sourceCode {
-background-color: transparent;
-overflow: visible;
-}
-hr {
-background-color: #1a1a1a;
-border: none;
-height: 1px;
-margin: 1em 0;
-}
-table {
-margin: 1em 0;
-border-collapse: collapse;
-width: 100%;
-overflow-x: auto;
-display: block;
-font-variant-numeric: lining-nums tabular-nums;
-}
-table caption {
-margin-bottom: 0.75em;
-}
-tbody {
-margin-top: 0.5em;
-border-top: 1px solid #1a1a1a;
-border-bottom: 1px solid #1a1a1a;
-}
-th {
-border-top: 1px solid #1a1a1a;
-padding: 0.25em 0.5em 0.25em 0.5em;
-}
-td {
-padding: 0.125em 0.5em 0.25em 0.5em;
-}
-header {
-margin-bottom: 4em;
-text-align: center;
-}
-#TOC li {
-list-style: none;
-}
-#TOC ul {
-padding-left: 1.3em;
-}
-#TOC > ul {
-padding-left: 0;
-}
-#TOC a:not(:hover) {
-text-decoration: none;
-}
-code{white-space: pre-wrap;}
-span.smallcaps{font-variant: small-caps;}
-div.columns{display: flex; gap: min(4vw, 1.5em);}
-div.column{flex: auto; overflow-x: auto;}
-div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
-ul.task-list{list-style: none;}
-ul.task-list li input[type="checkbox"] {
-width: 0.8em;
-margin: 0 0.8em 0.2em -1.6em;
-vertical-align: middle;
-}
-.display.math{display: block; text-align: center; margin: 0.5rem auto;}
-</style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    ul.task-list{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
   <!--[if lt IE 9]>
     <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
   <![endif]-->
@@ -212,7 +212,7 @@ string if it was not found</li>
 </ul>
 <h3 id="appopendocument-filename">app:openDocument (filename)</h3>
 <p>Open the specified filename, or reactivate (put its tab/window in
-front) if it&#39;s already open</p>
+front) if it's already open</p>
 <p><strong>Parameters:</strong></p>
 <ul>
 <li>filename: string: file to open or reactivate</li>
@@ -247,13 +247,6 @@ front) if it&#39;s already open</p>
 </ul>
 <h3 id="properties">Properties</h3>
 <table>
-<colgroup>
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-</colgroup>
 <thead>
 <tr class="header">
 <th>Name</th>
@@ -312,13 +305,6 @@ front) if it&#39;s already open</p>
 <p>Event for all command-based simple events</p>
 <h3 id="properties-1">Properties</h3>
 <table>
-<colgroup>
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-</colgroup>
 <thead>
 <tr class="header">
 <th>Name</th>
@@ -371,20 +357,11 @@ depends on the event type.</td>
 </table>
 <h3 id="constants">Constants</h3>
 <table>
-<colgroup>
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-</colgroup>
 <thead>
 <tr class="header">
 <th>Name</th>
 <th>Type</th>
 <th>Description</th>
-<th></th>
-<th></th>
 </tr>
 </thead>
 <tbody>
@@ -393,43 +370,31 @@ depends on the event type.</td>
 <td>integer</td>
 <td>event type identifier for calling the context menu (right click,
 Shift+F10 or application key)</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="even">
 <td>MENU</td>
 <td>integer</td>
 <td>type identifier for menu item selection event</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="odd">
 <td>TEXT_ENTER</td>
 <td>integer</td>
 <td>event type identifier for pressing enter in the edition area</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="even">
 <td>TOOL</td>
 <td>integer</td>
 <td>event identifier for tool selection event</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="odd">
 <td>TOOL_ENTER</td>
 <td>integer</td>
 <td>event type identifier for activating a tool event</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="even">
 <td>TOOL_RCLICKED</td>
 <td>integer</td>
 <td>event type identifier for right clicking on a tool event</td>
-<td></td>
-<td></td>
 </tr>
 </tbody>
 </table>
@@ -450,7 +415,8 @@ URL</p>
 <ul>
 <li>url: string: URL to open</li>
 </ul>
-<h3 id="dialogschooseone-message-title-options-selection0-sortedfalse">Dialogs.chooseOne
+<h3
+id="dialogschooseone-message-title-options-selection0-sortedfalse">Dialogs.chooseOne
 (message, title, options, selection=0, sorted=false)</h3>
 <p>Prompts the user to choose a single option among a list</p>
 <p><strong>Parameters:</strong></p>
@@ -507,7 +473,8 @@ which icon to show.</li>
 <li>integer: the ID_XXX value corresponding to the button clicked by the
 user.</li>
 </ul>
-<h3 id="dialogsmessageboxex-message-title-buttons-defaultbutton1-cancelbutton0">Dialogs.messageBoxEx
+<h3
+id="dialogsmessageboxex-message-title-buttons-defaultbutton1-cancelbutton0">Dialogs.messageBoxEx
 (message, title, buttons, defaultButton=1, cancelButton=0)</h3>
 <p>Display a simple dialog box with a message and custom buttons</p>
 <p><strong>Parameters:</strong></p>
@@ -518,14 +485,15 @@ user.</li>
 <li>defaultButton: integer: 1-based index of the default button
 initially selected when the dialog box opens</li>
 <li>cancelButton: integer: 1-based index of a button that will be
-triggered when escape is pressed. By default, escape doesn&#39;t allow to
+triggered when escape is pressed. By default, escape doesn't allow to
 close implicitly the dialog box.</li>
 </ul>
 <p><strong>Returns:</strong></p>
 <ul>
 <li>integer: the 1-based index of the button selected by the user</li>
 </ul>
-<h3 id="dialogsmessagedetailbox-message-title-hint-style">Dialogs.messageDetailBox
+<h3
+id="dialogsmessagedetailbox-message-title-hint-style">Dialogs.messageDetailBox
 (message, title, hint, style)</h3>
 <p>Show a dialog box with a short text, and a longer text that can be
 shown when pressing on a detail toggle button</p>
@@ -541,7 +509,8 @@ to show</li>
 <ul>
 <li>integer: the ID of the button clicked by the user</li>
 </ul>
-<h3 id="dialogsopendirectory-title-directory-multiplefalse">Dialogs.openDirectory
+<h3
+id="dialogsopendirectory-title-directory-multiplefalse">Dialogs.openDirectory
 (title, directory, multiple=false)</h3>
 <p>Open a dialog box where the user can choose one or more directories
 to open</p>
@@ -559,7 +528,8 @@ opens</li>
 of directories is returned, otherwise nil if the user cancelled the
 dialog box.</li>
 </ul>
-<h3 id="dialogsopenfile-title-directory-filename-filter-multiplefalse">Dialogs.openFile
+<h3
+id="dialogsopenfile-title-directory-filename-filter-multiplefalse">Dialogs.openFile
 (title, directory, filename, filter, multiple=false)</h3>
 <p>Open a dialog box where the user can choose one or more files to
 open</p>
@@ -570,8 +540,8 @@ open</p>
 opens</li>
 <li>filename: string: Name of the file initially selected when the
 dialog box opens</li>
-<li>filter: string: List of filters in a form like &#39;*.txt|Text
-files&#39;</li>
+<li>filter: string: List of filters in a form like '*.txt|Text
+files'</li>
 <li>multiple: boolean: whether the user can choose multiple files (true)
 or only a single one (false, default)</li>
 </ul>
@@ -597,7 +567,8 @@ the dialog opens</li>
 <li>string: if the user clicked OK, the entered text is returned,
 otherwise nil if the user cancelled the dialog box.</li>
 </ul>
-<h3 id="dialogspromptcredentials-message-title-username-password">Dialogs.promptCredentials
+<h3
+id="dialogspromptcredentials-message-title-username-password">Dialogs.promptCredentials
 (message, title, username, password)</h3>
 <p>prompts the user to enter some credentials, i.e. username and
 password</p>
@@ -616,7 +587,8 @@ box</li>
 <li>string: entered password, or nil if the user cancelled the dialog
 box</li>
 </ul>
-<h3 id="dialogspromptnumber-message-title-prompt-value0-min0-max100">Dialogs.promptNumber
+<h3
+id="dialogspromptnumber-message-title-prompt-value0-min0-max100">Dialogs.promptNumber
 (message, title, prompt, value=0, min=0, max=100)</h3>
 <p>prompts the user to enter an integer number</p>
 <p><strong>Parameters:</strong></p>
@@ -636,7 +608,8 @@ the dialog opens</li>
 <li>integer: if the user clicked OK, the entered value is returned,
 otherwise nil if the user cancelled the dialog box.</li>
 </ul>
-<h3 id="dialogspromptpassword-message-title-value">Dialogs.promptPassword
+<h3
+id="dialogspromptpassword-message-title-value">Dialogs.promptPassword
 (message, title, value)</h3>
 <p>prompts the user to enter a password</p>
 <p><strong>Parameters:</strong></p>
@@ -667,7 +640,8 @@ opens</li>
 <li>string: If the user selected a directory, it is returned, otherwise
 nil if the user cancelled the dialog box.</li>
 </ul>
-<h3 id="dialogssavefile-title-directory-filename-filter">Dialogs.saveFile
+<h3
+id="dialogssavefile-title-directory-filename-filter">Dialogs.saveFile
 (title, directory, filename, filter)</h3>
 <p>Open a dialog box where the user can choose a file to save to.</p>
 <p><strong>Parameters:</strong></p>
@@ -677,8 +651,8 @@ nil if the user cancelled the dialog box.</li>
 opens</li>
 <li>filename: string: Name of the file initially selected when the
 dialog box opens</li>
-<li>filter: string: List of filters in a form like &#39;*.txt|Text
-files&#39;</li>
+<li>filter: string: List of filters in a form like '*.txt|Text
+files'</li>
 </ul>
 <p><strong>Returns:</strong></p>
 <ul>
@@ -703,20 +677,11 @@ directly.</li>
 </ul>
 <h3 id="constants-1">Constants</h3>
 <table>
-<colgroup>
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-</colgroup>
 <thead>
 <tr class="header">
 <th>Name</th>
 <th>Type</th>
 <th>Description</th>
-<th></th>
-<th></th>
 </tr>
 </thead>
 <tbody>
@@ -724,187 +689,135 @@ directly.</li>
 <td>APPLY</td>
 <td>integer</td>
 <td>flag telling that the Apply button must be shown</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="even">
 <td>CANCEL</td>
 <td>integer</td>
 <td>flag telling that the Cancel button must be shown</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="odd">
 <td>CANCEL_DEFAULT</td>
 <td>integer</td>
 <td>Flag indicating that the Cancel button should be selected by
 default</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="even">
 <td>CLOSE</td>
 <td>integer</td>
 <td>flag telling that the Close button must be shown</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="odd">
 <td>HELP</td>
 <td>integer</td>
 <td>flag telling that the Help button must be shown</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="even">
 <td>ICON_AUTH_NEEDED</td>
 <td>integer</td>
 <td>Flag to display an icon of a shield</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="odd">
 <td>ICON_ERROR</td>
 <td>integer</td>
 <td>Flag to display an error icon</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="even">
 <td>ICON_EXCLAMATION</td>
 <td>integer</td>
 <td>Flag to display an exclamative icon</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="odd">
 <td>ICON_INFORMATION</td>
 <td>integer</td>
 <td>Flag to display an informative icon</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="even">
 <td>ICON_NONE</td>
 <td>integer</td>
 <td>Flag to display no particular icon</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="odd">
 <td>ICON_QUESTION</td>
 <td>integer</td>
 <td>Flag to display an interrogative icon</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="even">
 <td>ICON_WARNING</td>
 <td>integer</td>
 <td>Flag to display a warning icon</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="odd">
 <td>ID_APPLY</td>
 <td>integer</td>
 <td>identifier of the Apply button</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="even">
 <td>ID_CANCEL</td>
 <td>integer</td>
 <td>identifier of the Cancel button</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="odd">
 <td>ID_CLOSE</td>
 <td>integer</td>
 <td>identifier of the Close button</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="even">
 <td>ID_HELP</td>
 <td>integer</td>
 <td>identifier of the Help button</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="odd">
 <td>ID_NO</td>
 <td>integer</td>
 <td>identifier of the No button</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="even">
 <td>ID_OK</td>
 <td>integer</td>
 <td>identifier of the OK button</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="odd">
 <td>ID_YES</td>
 <td>integer</td>
 <td>identifier of the Yes button</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="even">
 <td>NO</td>
 <td>integer</td>
 <td>flag telling that the No button must be shown</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="odd">
 <td>NO_DEFAULT</td>
 <td>integer</td>
 <td>Flag indicating that the No button should be selected by
 default</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="even">
 <td>OK</td>
 <td>integer</td>
 <td>flag telling that the OK button must be shown</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="odd">
 <td>OK_DEFAULT</td>
 <td>integer</td>
 <td>Flag indicating that the OK button should be selected by
 default</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="even">
 <td>YES</td>
 <td>integer</td>
 <td>flag telling that the Yes button must be shown</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="odd">
 <td>YES_DEFAULT</td>
 <td>integer</td>
 <td>Flag indicating that the Yes button should be selected by
 default</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="even">
 <td>YES_NO</td>
 <td>integer</td>
 <td>flag telling that the Yes and No buttons must be shown</td>
-<td></td>
-<td></td>
 </tr>
 </tbody>
 </table>
@@ -912,7 +825,8 @@ default</td>
 <p>Type representing a document currently opened in the application</p>
 <h3 id="documentactivate-">document:activate ()</h3>
 <p>Activate the document and make it visible</p>
-<h3 id="documentbindaccelerator-accelerator-action">document:bindAccelerator
+<h3
+id="documentbindaccelerator-accelerator-action">document:bindAccelerator
 (accelerator, action)</h3>
 <p>Bind an accelerator to an action</p>
 <p><strong>Parameters:</strong></p>
@@ -945,7 +859,7 @@ the event</li>
 <h3 id="documentsave-">document:save ()</h3>
 <p>Save the document</p>
 <h3 id="documentsaveas-">document:saveAs ()</h3>
-<p>Save the document under another name. This opens the &quot;Save as&quot; dialog
+<p>Save the document under another name. This opens the "Save as" dialog
 box.</p>
 <h3 id="documentsetproperty-key-value">document:setProperty (key,
 value)</h3>
@@ -957,13 +871,6 @@ value)</h3>
 </ul>
 <h3 id="properties-2">Properties</h3>
 <table>
-<colgroup>
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-</colgroup>
 <thead>
 <tr class="header">
 <th>Name</th>
@@ -979,7 +886,7 @@ value)</h3>
 <td>boolean</td>
 <td>true</td>
 <td>false</td>
-<td>tells if the document hasn&#39;t been modified since the last save</td>
+<td>tells if the document hasn't been modified since the last save</td>
 </tr>
 <tr class="even">
 <td>editor</td>
@@ -1064,13 +971,6 @@ disk</td>
 </ul>
 <h3 id="properties-3">Properties</h3>
 <table>
-<colgroup>
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-</colgroup>
 <thead>
 <tr class="header">
 <th>Name</th>
@@ -1120,9 +1020,8 @@ disk</td>
 </table>
 <h2 id="eventhandler">EventHandler</h2>
 <p>Base class of all elements and controls that can react to events</p>
-<h3 id="eventhandlerbind-type-fromid-toid-handlerevent-function-to-call-when-the-event-occurrs-the-function-must-always-be-the-last-parameter">eventHandler:bind
-(type, fromId, toId, handler=event function to call when the event
-occurrs. The function must always be the last parameter.)</h3>
+<h3 id="eventhandlerbind-type-fromid-toid-handler">eventHandler:bind
+(type, fromId, toId, handler)</h3>
 <p>Bind an event</p>
 <p><strong>Parameters:</strong></p>
 <ul>
@@ -1131,7 +1030,8 @@ occurrs. The function must always be the last parameter.)</h3>
 This parameter can be totally omited.</li>
 <li>toId: integer: maximum ID for which the event must be processed.
 This parameter can be totally omited.</li>
-<li>handler: function:</li>
+<li>handler: function: event function to call when the event occurrs.
+The function must always be the last parameter.</li>
 </ul>
 <p><strong>Returns:</strong></p>
 <ul>
@@ -1146,20 +1046,11 @@ the event</li>
 </ul>
 <h3 id="constants-2">Constants</h3>
 <table>
-<colgroup>
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-</colgroup>
 <thead>
 <tr class="header">
 <th>Name</th>
 <th>Type</th>
 <th>Description</th>
-<th></th>
-<th></th>
 </tr>
 </thead>
 <tbody>
@@ -1168,64 +1059,48 @@ the event</li>
 <td>integer</td>
 <td>type identifier for document closed event, triggered when a document
 has been closed</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="even">
 <td>DOC_CLOSING</td>
 <td>integer</td>
 <td>type identifier for document closing event, triggered when a
 document is about to be closed</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="odd">
 <td>DOC_CREATED</td>
 <td>integer</td>
 <td>type identifier for document created event, triggered when a
 document has been created</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="even">
 <td>DOC_CREATING</td>
 <td>integer</td>
 <td>type identifier for document creating event, triggered when a
 document is about to be created</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="odd">
 <td>DOC_LOADED</td>
 <td>integer</td>
 <td>type identifier for document loaded event, triggered when a document
 has been loaded from file</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="even">
 <td>DOC_LOADING</td>
 <td>integer</td>
 <td>type identifier for document loading event, triggered when a
-document is about to be laoded from a file</td>
-<td></td>
-<td></td>
+document is about to be loaded from a file</td>
 </tr>
 <tr class="odd">
 <td>DOC_SAVED</td>
 <td>integer</td>
 <td>type identifier for document saved event, triggered when a document
 has been saved to file</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="even">
 <td>DOC_SAVING</td>
 <td>integer</td>
 <td>type identifier for document saving event, triggered when a document
 is about to be saved to file</td>
-<td></td>
-<td></td>
 </tr>
 </tbody>
 </table>
@@ -1310,12 +1185,12 @@ binary data not humanly readable.</li>
 <li>out: OutputStream: Output stream to write to</li>
 </ul>
 <h3 id="inputstreamseek-position-modecurrent">inputStream:seek
-(position, mode=&#39;current&#39;)</h3>
+(position, mode='current')</h3>
 <p>Seek in the stream</p>
 <p><strong>Parameters:</strong></p>
 <ul>
 <li>position: integer: position to seek to</li>
-<li>mode: string: one of &#39;begin&#39;, &#39;current&#39; or &#39;end&#39; to seek
+<li>mode: string: one of 'begin', 'current' or 'end' to seek
 respectively from the beginning of the stream, its current position, or
 from the end.</li>
 </ul>
@@ -1340,13 +1215,6 @@ again.</p>
 <p>Event class for all keyboard-related events</p>
 <h3 id="properties-4">Properties</h3>
 <table>
-<colgroup>
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-</colgroup>
 <thead>
 <tr class="header">
 <th>Name</th>
@@ -1431,20 +1299,11 @@ again.</p>
 </table>
 <h3 id="constants-3">Constants</h3>
 <table>
-<colgroup>
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-</colgroup>
 <thead>
 <tr class="header">
 <th>Name</th>
 <th>Type</th>
 <th>Description</th>
-<th></th>
-<th></th>
 </tr>
 </thead>
 <tbody>
@@ -1452,36 +1311,29 @@ again.</p>
 <td>CHAR</td>
 <td>integer</td>
 <td>event type identifier for character key press event</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="even">
 <td>CHAR_HOOK</td>
 <td>integer</td>
 <td>event type identifier for character key press event</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="odd">
 <td>KEY_DOWN</td>
 <td>integer</td>
 <td>event type identifier for key down event</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="even">
 <td>KEY_UP</td>
 <td>integer</td>
 <td>event type identifier for key up event</td>
-<td></td>
-<td></td>
 </tr>
 </tbody>
 </table>
 <h2 id="menu">Menu</h2>
 <p>Type representing a menu, whether a menu in the menubar, or a popup
 menu</p>
-<h3 id="menuadd-label-submenu-helpstring-position0-id0-checkablefalse-radiofalse-checkedfalse">menu:add
+<h3
+id="menuadd-label-submenu-helpstring-position0-id0-checkablefalse-radiofalse-checkedfalse">menu:add
 (label, subMenu, helpString, position=0, id=0, checkable=false,
 radio=false, checked=false)</h3>
 <p>Add a new menu item to this menu</p>
@@ -1702,13 +1554,6 @@ on</li>
 </ul>
 <h3 id="properties-6">Properties</h3>
 <table>
-<colgroup>
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-</colgroup>
 <thead>
 <tr class="header">
 <th>Name</th>
@@ -1781,7 +1626,7 @@ displayed in the status bar while the item is highlighted.</td>
 <td>boolean</td>
 <td>true</td>
 <td>false</td>
-<td>Tells if this item is checkable and if it&#39;s a radio button</td>
+<td>Tells if this item is checkable and if it's a radio button</td>
 </tr>
 <tr class="even">
 <td>separator</td>
@@ -1810,13 +1655,6 @@ displayed in the status bar while the item is highlighted.</td>
 </ul>
 <h3 id="properties-7">Properties</h3>
 <table>
-<colgroup>
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-</colgroup>
 <thead>
 <tr class="header">
 <th>Name</th>
@@ -1944,20 +1782,11 @@ displayed in the status bar while the item is highlighted.</td>
 </table>
 <h3 id="constants-4">Constants</h3>
 <table>
-<colgroup>
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-</colgroup>
 <thead>
 <tr class="header">
 <th>Name</th>
 <th>Type</th>
 <th>Description</th>
-<th></th>
-<th></th>
 </tr>
 </thead>
 <tbody>
@@ -1965,92 +1794,66 @@ displayed in the status bar while the item is highlighted.</td>
 <td>ENTER_WINDOW</td>
 <td>integer</td>
 <td>event type identifier for mouse entering event</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="even">
 <td>LEAVE_WINDOW</td>
 <td>integer</td>
 <td>event type identifier for mouse leaving event</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="odd">
 <td>LEFT_DCLICK</td>
 <td>integer</td>
 <td>event type identifier for left double click event</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="even">
 <td>LEFT_DOWN</td>
 <td>integer</td>
 <td>event type identifier for left mouse down event</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="odd">
 <td>LEFT_UP</td>
 <td>integer</td>
 <td>event type identifier for left mouse up event</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="even">
 <td>MIDDLE_DCLICK</td>
 <td>integer</td>
 <td>event type identifier for middle double click event</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="odd">
 <td>MIDDLE_DOWN</td>
 <td>integer</td>
 <td>event type identifier for middle mouse down event</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="even">
 <td>MIDDLE_UP</td>
 <td>integer</td>
 <td>event type identifier for middle mouse up event</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="odd">
 <td>MOTION</td>
 <td>integer</td>
 <td>event type identifier for mouse motion event</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="even">
 <td>MOUSEWHEEL</td>
 <td>integer</td>
 <td>event type identifier for mouse wheel rotation event</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="odd">
 <td>RIGHT_DCLICK</td>
 <td>integer</td>
 <td>event type identifier for right double click event</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="even">
 <td>RIGHT_DOWN</td>
 <td>integer</td>
 <td>event type identifier for right mouse down event</td>
-<td></td>
-<td></td>
 </tr>
 <tr class="odd">
 <td>RIGHT_UP</td>
 <td>integer</td>
 <td>event type identifier for right mouse up event</td>
-<td></td>
-<td></td>
 </tr>
 </tbody>
 </table>
@@ -2067,12 +1870,12 @@ writing, or nil to create an in-memory stream</li>
 <h3 id="outputstreamclose-">outputStream:close ()</h3>
 <p>Close the stream</p>
 <h3 id="outputstreamseek-position-ansecurrent">outputStream:seek
-(position, anse=&#39;current&#39;)</h3>
+(position, anse='current')</h3>
 <p>Seek in the stream</p>
 <p><strong>Parameters:</strong></p>
 <ul>
 <li>position: integer: position to seek to</li>
-<li>anse: string: one of &#39;begin&#39;, &#39;current&#39; or &#39;end&#39; to seek
+<li>anse: string: one of 'begin', 'current' or 'end' to seek
 respectively from the beginning of the stream, its current position, or
 from the end.</li>
 </ul>
@@ -2187,10 +1990,10 @@ given</li>
 <li>table: table of path segments</li>
 </ul>
 <h3 id="pathgethomedir-">Path.getHomeDir ()</h3>
-<p>get the user&#39;s home directory</p>
+<p>get the user's home directory</p>
 <p><strong>Returns:</strong></p>
 <ul>
-<li>string: user&#39;s home directory</li>
+<li>string: user's home directory</li>
 </ul>
 <h3 id="pathgethumanreadablesize-file">Path.getHumanReadableSize
 (file)</h3>
@@ -2381,13 +2184,6 @@ permissions=0, flags)</h3>
 </ul>
 <h3 id="properties-8">Properties</h3>
 <table>
-<colgroup>
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-</colgroup>
 <thead>
 <tr class="header">
 <th>Name</th>
@@ -2484,16 +2280,9 @@ terminates</li>
 </ul>
 <h3 id="processcloseoutput-">process:closeOutput ()</h3>
 <p>Close the output stream connected to the standard input stream of the
-process, indicating to it that you aren&#39;t going to send data anymore</p>
+process, indicating to it that you aren't going to send data anymore</p>
 <h3 id="properties-9">Properties</h3>
 <table>
-<colgroup>
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-</colgroup>
 <thead>
 <tr class="header">
 <th>Name</th>
@@ -2555,13 +2344,6 @@ process</td>
 <p>Event notified when a process terminates</p>
 <h3 id="properties-10">Properties</h3>
 <table>
-<colgroup>
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-</colgroup>
 <thead>
 <tr class="header">
 <th>Name</th>
@@ -2578,7 +2360,7 @@ process</td>
 <td>true</td>
 <td>false</td>
 <td>exit code of the process, usually 0 for success, any positive value
-when the process failed, and negative value when the process couldn&#39;t be
+when the process failed, and negative value when the process couldn't be
 executed at all</td>
 </tr>
 <tr class="even">
@@ -2636,7 +2418,8 @@ executed at all</td>
 </ul>
 <h3 id="texteditorclear-">textEditor:clear ()</h3>
 <p>Clear the entire zone</p>
-<h3 id="texteditorcolumnlinetoposition-x-y">textEditor:columnLineToPosition
+<h3
+id="texteditorcolumnlinetoposition-x-y">textEditor:columnLineToPosition
 (x, y)</h3>
 <p>Convert a Column/Line based position into a character position</p>
 <p><strong>Parameters:</strong></p>
@@ -2700,7 +2483,8 @@ end)</li>
 <li>integer: anchor point of the current selection</li>
 <li>integer: end point of the current selection</li>
 </ul>
-<h3 id="texteditorpositiontocolumnline-position0">textEditor:positionToColumnLine
+<h3
+id="texteditorpositiontocolumnline-position0">textEditor:positionToColumnLine
 (position=0)</h3>
 <p>Convert a 1-based character position into an X/Y or Column/Line based
 position</p>
@@ -2757,13 +2541,6 @@ the end)</li>
 </ul>
 <h3 id="properties-11">Properties</h3>
 <table>
-<colgroup>
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-</colgroup>
 <thead>
 <tr class="header">
 <th>Name</th>
@@ -2869,16 +2646,9 @@ the previous interval.</li>
 start</li>
 </ul>
 <h3 id="timerstop-">timer:stop ()</h3>
-<p>Stops the timer if it&#39;s running.</p>
+<p>Stops the timer if it's running.</p>
 <h3 id="properties-12">Properties</h3>
 <table>
-<colgroup>
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-</colgroup>
 <thead>
 <tr class="header">
 <th>Name</th>
@@ -2922,20 +2692,22 @@ start</li>
 </table>
 <h2 id="webrequest">WebRequest</h2>
 <p>Class allowing to make web requests</p>
-<h3 id="webrequest-url-methodget-data-contenttype-contentlength">WebRequest
-(url, method=&#39;GET&#39;, data, contentType, contentLength)</h3>
+<h3
+id="webrequest-url-methodget-data-contenttype-contentlength">WebRequest
+(url, method='GET', data, contentType, contentLength)</h3>
 <p>Create a new web request</p>
 <p><strong>Parameters:</strong></p>
 <ul>
 <li>url: string: URL of the request</li>
 <li>method: string: HTTP method of the request</li>
 <li>data: string|InputStream: a string or an input stream to send as
-request content. The method is automatically changed from &#39;GET&#39; to
-&#39;POST&#39; if necessary.</li>
+request content. The method is automatically changed from 'GET' to
+'POST' if necessary.</li>
 <li>contentType: string: Content-Type for request content</li>
 <li>contentLength: integer: length of the request content in bytes</li>
 </ul>
-<h3 id="webrequestsetdata-data-contenttype-contentlength">webRequest:setData
+<h3
+id="webrequestsetdata-data-contenttype-contentlength">webRequest:setData
 (data, contentType, contentLength)</h3>
 <p>Set the request body</p>
 <p><strong>Parameters:</strong></p>
@@ -2964,13 +2736,6 @@ The fonction receive a WebResponse object as parameter.</li>
 </ul>
 <h3 id="properties-13">Properties</h3>
 <table>
-<colgroup>
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-</colgroup>
 <thead>
 <tr class="header">
 <th>Name</th>
@@ -3013,13 +2778,6 @@ secure.</td>
 </ul>
 <h3 id="properties-14">Properties</h3>
 <table>
-<colgroup>
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-<col style="width: 20%" />
-</colgroup>
 <thead>
 <tr class="header">
 <th>Name</th>
@@ -3080,7 +2838,7 @@ binary data not humanly readable.</td>
 <td>string</td>
 <td>true</td>
 <td>false</td>
-<td>Text of the HTTP response code, for example &#39;OK&#39;</td>
+<td>Text of the HTTP response code, for example 'OK'</td>
 </tr>
 <tr class="even">
 <td>suggestedFileName</td>
@@ -3146,30 +2904,10 @@ ending, etc.</li>
 <ul>
 <li>string: the resulting lua object parsed from JSON</li>
 </ul>
-<h2 id="string">string</h2>
-<p>Additions and replacements to the standard string lua module</p>
-<h3 id="stringcapitalize-string">string.capitalize (string)</h3>
-<p>Capitalize the string</p>
-<p><strong>Parameters:</strong></p>
-<ul>
-<li>string: string: string to capitalize</li>
-</ul>
-<p><strong>Returns:</strong></p>
-<ul>
-<li>string: the transformed string</li>
-</ul>
-<h3 id="stringlower-string">string.lower (string)</h3>
-<p>Turn a string into lowercase</p>
-<p><strong>Parameters:</strong></p>
-<ul>
-<li>string: string: string to translate to lowercase</li>
-</ul>
-<p><strong>Returns:</strong></p>
-<ul>
-<li>string: the transformed string</li>
-</ul>
-<h3 id="stringpfind-subject-pattern-start1">string.pfind (subject,
-pattern, start=1)</h3>
+<h2 id="pcre">pcre</h2>
+<p>PCRE2 regular expression support</p>
+<h3 id="pcrefind-subject-pattern-start1">pcre.find (subject, pattern,
+start=1)</h3>
 <p>Works almost like string.find, using PCRE2 regular expression instead
 of lua pattern syntax: search for the first match and return the
 position of where it has been found</p>
@@ -3190,10 +2928,10 @@ ancohred, J=allow duplicate names.</li>
 <li>integer: ending position of the first match</li>
 <li>string...: matched subgroups</li>
 </ul>
-<h3 id="stringpgmatch-subject-pattern-start1">string.pgmatch (subject,
+<h3 id="pcregmatch-subject-pattern-start1">pcre.gmatch (subject,
 pattern, start=1)</h3>
 <p>Works almost like string.gmatch, using PCRE2 regular expression
-instead of lua pattern syntax: return an interator explist to iterate
+instead of lua pattern syntax: return an iterator explist to iterate
 over each matches of the string.</p>
 <p><strong>Parameters:</strong></p>
 <ul>
@@ -3207,7 +2945,7 @@ string.find)</li>
 <li>function: iterator function</li>
 <li>userdata: iterator state data</li>
 </ul>
-<h3 id="stringpgsub-subject-pattern-start1-replacement-max0">string.pgsub
+<h3 id="pcregsub-subject-pattern-start1-replacement-max0">pcre.gsub
 (subject, pattern, start=1, replacement, max=0)</h3>
 <p>Works almost like string.gsub, using PCRE2 regular expression instead
 of lua pattern syntax: perform a global substitution, i.e. replace each
@@ -3233,8 +2971,8 @@ indicating no limit</li>
 <li>string: new string with all replacements performed</li>
 <li>integer: number of replacements made</li>
 </ul>
-<h3 id="stringpmatch-subject-pattern-start1">string.pmatch (subject,
-pattern, start=1)</h3>
+<h3 id="pcrematch-subject-pattern-start1">pcre.match (subject, pattern,
+start=1)</h3>
 <p>Works almost like string.match, using PCRE2 regular expression
 instead of lua pattern syntax: search for the first match and return the
 matched groups</p>
@@ -3249,18 +2987,18 @@ string.find)</li>
 <ul>
 <li>string...: matched subgroups</li>
 </ul>
-<h3 id="stringupper-string">string.upper (string)</h3>
-<p>Turn a string into uppercase</p>
+<h2 id="utf8">utf8</h2>
+<p>Additions to the utf8 lua module</p>
+<h3 id="utf8capitalize-string">utf8.capitalize (string)</h3>
+<p>Capitalize the string</p>
 <p><strong>Parameters:</strong></p>
 <ul>
-<li>string: string: string to translate to uppercase</li>
+<li>string: string: string to capitalize</li>
 </ul>
 <p><strong>Returns:</strong></p>
 <ul>
 <li>string: the transformed string</li>
 </ul>
-<h2 id="utf8">utf8</h2>
-<p>Additions to the utf8 lua module</p>
 <h3 id="utf8decode-string-encoding">utf8.decode (string, encoding)</h3>
 <p>Decode a string from some encoding into UTF-8</p>
 <p><strong>Parameters:</strong></p>
@@ -3284,6 +3022,26 @@ encoded</li>
 <ul>
 <li>string: the string encoded in the given encoding</li>
 </ul>
-<p>End of the doc</p>
+<h3 id="utf8lower-string">utf8.lower (string)</h3>
+<p>Turn a string into lowercase</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li>string: string: string to translate to lowercase</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>string: the transformed string</li>
+</ul>
+<h3 id="utf8upper-string">utf8.upper (string)</h3>
+<p>Turn a string into uppercase</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li>string: string: string to translate to uppercase</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>string: the transformed string</li>
+</ul>
+<hr />
 </body>
 </html>

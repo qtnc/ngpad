@@ -4,9 +4,15 @@
 #define APP_NAME "NGPad"
 #define APP_VENDOR "QuentinC"
 #define APP_DISPLAY_NAME APP_NAME
+#define APP_PRODUCT_NAME APP_DISPLAY_NAME
 #define APP_WEBSITE_URL "http://quentinc.net/"
-#define APP_COPYRIGHT_INFO "Copyright © 2023"
-#define APP_VERSION_STRING "2024.8.26"
+#define APP_COPYRIGHT_INFO "Copyright © 2023-2025"
+#define APP_VERSION_MAJOR 2025
+#define APP_VERSION_MINOR 8
+#define APP_VERSION_BUILD_MAJOR 3
+#define APP_VERSION_BUILD_MINOR 11
+#define APP_VERSION_STRING "2025.8.3"
+#define APP_COMMENT APP_DISPLAY_NAME APP_VERSION_STRING
 
 #define CONFIG_FILENAME "config/config.ini"
 #define SESSION_FILENAME "config/session.ini"

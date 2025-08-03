@@ -1,1 +1,47 @@
+#define UNICODE
+#define rcInvoked
+#define wxUSE_RC_MANIFEST 1
+#define wxUSE_DPI_AWARE_MANIFEST 2
 #include "wx/msw/wx.rc"
+#include "constants.hpp"
+#include<winver.h>
+
+1 VERSIONINFO
+ FILEVERSION APP_VERSION_MAJOR,APP_VERSION_MINOR,APP_VERSION_BUILD_MAJOR,APP_VERSION_BUILD_MINOR
+ PRODUCTVERSION APP_VERSION_MAJOR,APP_VERSION_MINOR,APP_VERSION_BUILD_MAJOR,APP_VERSION_BUILD_MINOR
+ FILEFLAGSMASK 0x3FL
+#ifdef DEBUG
+ FILEFLAGS VS_FF_DEBUG | VS_FF_PRERELEASE
+#else
+ FILEFLAGS 0
+#endif
+ FILEOS VOS_NT_WINDOWS32
+ FILETYPE VFT_APP
+ FILESUBTYPE 0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904E4"
+        BEGIN
+            VALUE "Comments", APP_COMMENT
+            VALUE "CompanyName", APP_VENDOR
+            VALUE "FileDescription", APP_PRODUCT_NAME
+            VALUE "FileVersion", APP_VERSION_STRING
+            VALUE "InternalName", APP_NAME
+            VALUE "LegalCopyright", APP_COPYRIGHT_INFO
+            VALUE "OriginalFilename", "NGPad.exe"
+            VALUE "ProductName", APP_PRODUCT_NAME
+            VALUE "ProductVersion", APP_VERSION_STRING
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+            VALUE "Translation", 
+0x0409, 1252, // US english
+0x0809, 1252, // UK English
+0x040C, 1252, // French
+0x100C, 1252, // Swiss french
+0x0C0C, 1252, // Canadian french
+0x080C, 1252 // Belgium french
+    END
+END

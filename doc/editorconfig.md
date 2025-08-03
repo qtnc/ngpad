@@ -1,4 +1,6 @@
-Title: .editorconfig support
+---
+title: .editorconfig support
+---
 
 ## Standard directives
 

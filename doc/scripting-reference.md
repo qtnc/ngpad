@@ -1,4 +1,6 @@
-Title: Scripting reference
+---
+title: Scripting reference
+---
 
 ## App
 Type representing the application. A single instance of this type exists, under the global variable `app`.
@@ -93,7 +95,7 @@ string | string | true | true | additional information of type string. The kind 
 
 ### Constants
 Name | Type | Description
------|-----|-----|-----|-----
+-----|-----|-----
 CONTEXT_MENU | integer | event type identifier for calling the context menu (right click, Shift+F10 or application key)
 MENU | integer | type identifier for menu item selection event
 TEXT_ENTER | integer | event type identifier for pressing enter in the edition area
@@ -294,7 +296,7 @@ Open a dialog box presenting a web page
 
 ### Constants
 Name | Type | Description
------|-----|-----|-----|-----
+-----|-----|-----
 APPLY | integer | flag telling that the Apply button must be shown
 CANCEL | integer | flag telling that the Cancel button must be shown
 CANCEL_DEFAULT | integer | Flag indicating that the Cancel button should be selected by default
@@ -425,7 +427,7 @@ unbind an event previously bount with bind()
 
 ### Constants
 Name | Type | Description
------|-----|-----|-----|-----
+-----|-----|-----
 DOC_CLOSED | integer | type identifier for document closed event, triggered when a document has been closed
 DOC_CLOSING | integer | type identifier for document closing event, triggered when a document is about to be closed
 DOC_CREATED | integer | type identifier for document created event, triggered when a document has been created
@@ -537,7 +539,7 @@ unicodeKey | string | true | false | unicode character corresponding to the key
 
 ### Constants
 Name | Type | Description
------|-----|-----|-----|-----
+-----|-----|-----
 CHAR | integer | event type identifier for character key press event
 CHAR_HOOK | integer | event type identifier for character key press event
 KEY_DOWN | integer | event type identifier for key down event
@@ -768,7 +770,7 @@ y | integer | true | false | Y coordinate of the mouse
 
 ### Constants
 Name | Type | Description
------|-----|-----|-----|-----
+-----|-----|-----
 ENTER_WINDOW | integer | event type identifier for mouse entering event
 LEAVE_WINDOW | integer | event type identifier for mouse leaving event
 LEFT_DCLICK | integer | event type identifier for left double click event
@@ -1434,28 +1436,10 @@ Load JSON data
 **Returns:**
 * string: the resulting lua object parsed from JSON
 
-## string
-Additions and replacements to the standard string lua module
+## pcre
+PCRE2 regular expression support
 
-### string.capitalize (string)
-Capitalize the string
-
-**Parameters:**
-* string: string: string to capitalize
-
-**Returns:**
-* string: the transformed string
-
-### string.lower (string)
-Turn a string into lowercase
-
-**Parameters:**
-* string: string: string to translate to lowercase
-
-**Returns:**
-* string: the transformed string
-
-### string.pfind (subject, pattern, start=1)
+### pcre.find (subject, pattern, start=1)
 Works almost like string.find, using PCRE2 regular expression instead of lua pattern syntax: search for the first match and return the position of where it has been found
 
 **Parameters:**
@@ -1468,8 +1452,8 @@ Works almost like string.find, using PCRE2 regular expression instead of lua pat
 * integer: ending position of the first match
 * string...: matched subgroups
 
-### string.pgmatch (subject, pattern, start=1)
-Works almost like string.gmatch, using PCRE2 regular expression instead of lua pattern syntax: return an interator explist to iterate over each matches of the string.
+### pcre.gmatch (subject, pattern, start=1)
+Works almost like string.gmatch, using PCRE2 regular expression instead of lua pattern syntax: return an iterator explist to iterate over each matches of the string.
 
 **Parameters:**
 * subject: string: subject string
@@ -1480,7 +1464,7 @@ Works almost like string.gmatch, using PCRE2 regular expression instead of lua p
 * function: iterator function
 * userdata: iterator state data
 
-### string.pgsub (subject, pattern, start=1, replacement, max=0)
+### pcre.gsub (subject, pattern, start=1, replacement, max=0)
 Works almost like string.gsub, using PCRE2 regular expression instead of lua pattern syntax: perform a global substitution, i.e. replace each match by a replacement
 
 **Parameters:**
@@ -1494,7 +1478,7 @@ Works almost like string.gsub, using PCRE2 regular expression instead of lua pat
 * string: new string with all replacements performed
 * integer: number of replacements made 
 
-### string.pmatch (subject, pattern, start=1)
+### pcre.match (subject, pattern, start=1)
 Works almost like string.match, using PCRE2 regular expression instead of lua pattern syntax: search for the first match and return the matched groups
 
 **Parameters:**
@@ -1505,17 +1489,17 @@ Works almost like string.match, using PCRE2 regular expression instead of lua pa
 **Returns:**
 * string...: matched subgroups
 
-### string.upper (string)
-Turn a string into uppercase
+## utf8
+Additions to the utf8 lua module
+
+### utf8.capitalize (string)
+Capitalize the string
 
 **Parameters:**
-* string: string: string to translate to uppercase
+* string: string: string to capitalize
 
 **Returns:**
 * string: the transformed string
-
-## utf8
-Additions to the utf8 lua module
 
 ### utf8.decode (string, encoding)
 Decode a string from some encoding into UTF-8
@@ -1536,6 +1520,24 @@ Encode an UTF-8 string into some encoding
 
 **Returns:**
 * string: the string encoded in the given encoding
+
+### utf8.lower (string)
+Turn a string into lowercase
+
+**Parameters:**
+* string: string: string to translate to lowercase
+
+**Returns:**
+* string: the transformed string
+
+### utf8.upper (string)
+Turn a string into uppercase
+
+**Parameters:**
+* string: string: string to translate to uppercase
+
+**Returns:**
+* string: the transformed string
  
 
-End of the doc
+---

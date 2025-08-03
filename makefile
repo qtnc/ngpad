@@ -24,7 +24,7 @@ OBJDIR=obj$(NAME_SUFFIX)/
 
 CXX=g++
 WINDRES=windres
-WINDRESFLAGS=$(addprefix -D,$(DEFINES)) -I"$(CPATH)"
+WINDRESFLAGS=-c 65001 $(addprefix -D,$(DEFINES)) -I"$(CPATH)"
 CXXFLAGS=-std=gnu++17 -Wextra $(addprefix -D,$(DEFINES)) -mthreads
 LDFLAGS=-L. -lpcre2-8 -lpcre2-16 -lwxbase33u$(NAME_SUFFIX) -lwxmsw33u$(NAME_SUFFIX)_core -lwxmsw33u$(NAME_SUFFIX)_aui -lwxbase33u$(NAME_SUFFIX)_xml -lwxbase33u$(NAME_SUFFIX)_net -lwxmsw33u$(NAME_SUFFIX)_webview -lwxmsw33u$(NAME_SUFFIX)_stc -lfmt -lole32 -loleaut32 -loleacc -llua -ltidy -mthreads -mwindows -Wl,--allow-multiple-definition
 
@@ -60,5 +60,5 @@ doc/scripting-reference.md: gendoc.lua doc/scripting-reference.mdg $(SRCS)
 	lua gendoc.lua $^ $@
 
 doc/%.html: doc/%.md
-	pandoc -t html5 -f gfm+lists_without_preceding_blankline+mmd_title_block --standalone -o $@ $<
+	pandoc -t html5 -f gfm --standalone -o $@ $<
 

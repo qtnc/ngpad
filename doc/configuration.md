@@ -1,4 +1,6 @@
-Title: Configuration directives
+---
+title: Configuration directives
+---
 
 Key | Value type | Default value | Description
 -----|-----|-----|-----

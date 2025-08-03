@@ -142,8 +142,10 @@ return 2;
 }
 
 export int luaopen_pcre (lua_State* L) {
-//T PCRE2 regular expression support
 lua_newtable(L);
+
+//T PCRE2 regular expression support
+//lua_setfield(L, -2, "pcre");
 
 //F Works almost like string.find, using PCRE2 regular expression instead of lua pattern syntax: search for the first match and return the position of where it has been found
 //P subject: string: nil: subject string
@@ -161,7 +163,7 @@ lua_pushfield(L, "find", &lspfind);
 //R string...: matched subgroups
 lua_pushfield(L, "match", &lspmatch);
 
-//F Works almost like string.gmatch, using PCRE2 regular expression instead of lua pattern syntax: return an interator explist to iterate over each matches of the string.
+//F Works almost like string.gmatch, using PCRE2 regular expression instead of lua pattern syntax: return an iterator explist to iterate over each matches of the string.
 //P subject: string: nil: subject string
 //P pattern: string: nil: PCRE2 regular expression pattern (see string.find)
 //P start: integer: 1: starting position where to start the search

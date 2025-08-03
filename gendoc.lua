@@ -175,7 +175,7 @@ if tp.constants and next(tp.constants) then
 write[[
 ### Constants
 Name | Type | Description
------|-----|-----|-----|-----]]
+-----|-----|-----]]
 for name, prop in sortedpairs(tp.constants) do
 write(string.format('%s | %s | %s', prop.name, prop.type, prop.description))
 end

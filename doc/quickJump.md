@@ -1,4 +1,6 @@
-Title: Quick jump
+---
+title: Quick jump
+---
 
 ## General syntax
 `file:command?parameters`

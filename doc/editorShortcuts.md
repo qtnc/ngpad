@@ -1,6 +1,8 @@
-Title: Text editor shortcuts
+---
+title: Text editor shortcuts
+---
 
-Only valable for raw, rich1 and rich2 editor modes.
+These shortcuts are only valable for raw, rich1 and rich2 editor modes.
 
 Shortcut | Effect
 -----|-----
