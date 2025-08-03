@@ -29,9 +29,37 @@ lua_pushlstring(L, cs, csEnd-cs);
 return 1;
 }
 
+static wxString MakeLower (wxString s) {
+return s.MakeLower();
+}
+
+static wxString MakeUpper (wxString s) {
+return s.MakeUpper();
+}
+
+static wxString MakeCapitalized (wxString s) {
+return s.MakeCapitalized();
+}
+
+
 export int luaopen_UTF8 (lua_State* L) {
 //T Additions to the utf8 lua module
 lua_getglobal(L, "utf8");
+
+//F Turn a string into lowercase
+//P string: string: nil: string to translate to lowercase
+//R string: the transformed string
+lua_pushfield(L, "lower", &MakeLower);
+
+//F Turn a string into uppercase
+//P string: string: nil: string to translate to uppercase
+//R string: the transformed string
+lua_pushfield(L, "upper", &MakeUpper);
+
+//F Capitalize the string
+//P string: string: nil: string to capitalize
+//R string: the transformed string
+lua_pushfield(L, "capitalize", &MakeCapitalized);
 
 //F Decode a string from some encoding into UTF-8
 //P string: string: nil: the string to decode

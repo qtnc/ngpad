@@ -6,7 +6,6 @@
 export int luaopen_wx (lua_State* L);
 export int luaopen_AbstractDocument (lua_State* L);
 export int luaopen_UTF8 (lua_State* L);
-export int luaopen_String (lua_State* L);
 export int luaopen_IO (lua_State* L);
 export int luaopen_OS (lua_State* L);
 export int luaopen_DynamicLoad(lua_State* L);
@@ -124,7 +123,6 @@ lua_setwarnf(L, &luaWarn, nullptr);
 luaL_openlibs(L);
 luaopen_DynamicLoad(L);
 luaopen_UTF8(L);
-luaopen_String(L);
 luaopen_IO(L);
 luaopen_OS(L);
 

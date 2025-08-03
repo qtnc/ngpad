@@ -40,18 +40,6 @@ LPCRE (lua_State* L, const int idx): LPCRE(L, const_cast<int&>(idx), true) {}
 
 LuaRegisterValueType(LPCRE);
 
-static wxString MakeLower (wxString s) {
-return s.MakeLower();
-}
-
-static wxString MakeUpper (wxString s) {
-return s.MakeUpper();
-}
-
-static wxString MakeCapitalized (wxString s) {
-return s.MakeCapitalized();
-}
-
 static int lspushmatches (lua_State* L, PCRE& reg) {
 int n = reg.groupCount();
 if (n<=1) {
@@ -153,24 +141,9 @@ lua_pushinteger(L, count);
 return 2;
 }
 
-export int luaopen_String (lua_State* L) {
-//T Additions and replacements to the standard string lua module
-lua_getglobal(L, "string");
-
-//F Turn a string into lowercase
-//P string: string: nil: string to translate to lowercase
-//R string: the transformed string
-lua_pushfield(L, "lower", &MakeLower);
-
-//F Turn a string into uppercase
-//P string: string: nil: string to translate to uppercase
-//R string: the transformed string
-lua_pushfield(L, "upper", &MakeUpper);
-
-//F Capitalize the string
-//P string: string: nil: string to capitalize
-//R string: the transformed string
-lua_pushfield(L, "capitalize", &MakeCapitalized);
+export int luaopen_pcre (lua_State* L) {
+//T PCRE2 regular expression support
+lua_newtable(L);
 
 //F Works almost like string.find, using PCRE2 regular expression instead of lua pattern syntax: search for the first match and return the position of where it has been found
 //P subject: string: nil: subject string
@@ -179,20 +152,23 @@ lua_pushfield(L, "capitalize", &MakeCapitalized);
 //R integer: starting position of the first match
 //R integer: ending position of the first match
 //R string...: matched subgroups
-lua_pushfield(L, "pfind", &lspfind);
+lua_pushfield(L, "find", &lspfind);
+
 //F Works almost like string.match, using PCRE2 regular expression instead of lua pattern syntax: search for the first match and return the matched groups
 //P subject: string: nil: subject string
 //P pattern: string: nil: PCRE2 regular expression pattern (see string.find)
 //P start: integer: 1: starting position where to start the search
 //R string...: matched subgroups
-lua_pushfield(L, "pmatch", &lspmatch);
+lua_pushfield(L, "match", &lspmatch);
+
 //F Works almost like string.gmatch, using PCRE2 regular expression instead of lua pattern syntax: return an interator explist to iterate over each matches of the string.
 //P subject: string: nil: subject string
 //P pattern: string: nil: PCRE2 regular expression pattern (see string.find)
 //P start: integer: 1: starting position where to start the search
 //R function: iterator function
 //R userdata: iterator state data
-lua_pushfield(L, "pgmatch", &lspgmatch);
+lua_pushfield(L, "gmatch", &lspgmatch);
+
 //F Works almost like string.gsub, using PCRE2 regular expression instead of lua pattern syntax: perform a global substitution, i.e. replace each match by a replacement
 //P subject: string: nil: subject string
 //P pattern: string: nil: PCRE2 regular expression pattern (see string.find)
@@ -201,10 +177,7 @@ lua_pushfield(L, "pgmatch", &lspgmatch);
 //P max: integer: 0: maximum number of replacements to make, <=0 indicating no limit
 //R string: new string with all replacements performed
 //R integer: number of replacements made 
-lua_pushfield(L, "pgsub", &lspgsub);
+lua_pushfield(L, "gsub", &lspgsub);
 
-
-
-lua_pop(L, 1);
-return 0;
+return 1;
 }
