@@ -118,6 +118,11 @@ initDocManager();
 if (!wxApp::OnInit()) return false;
 if (config.get("single_instance", true) && CheckSingleInstance(cmdLineArgs)) return false;
 
+std::string lookMode = config.get("appearance", "none");
+if (lookMode=="system") SetAppearance(Appearance::System);
+else if (lookMode=="light") SetAppearance(Appearance::Light);
+else if (lookMode=="dark") SetAppearance(Appearance::Dark);
+
 wxArtProvider::PushBack(new CustomArtProvider());
 wxSystemOptions::SetOption("msw.remap", 2);
 

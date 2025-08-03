@@ -6,7 +6,7 @@ struct MemoryInputStreamWithBuffer: wxMemoryInputStream {
 std::string* buf;
 virtual ~MemoryInputStreamWithBuffer () { delete buf; }
 MemoryInputStreamWithBuffer (std::string* b): wxMemoryInputStream(b->data(), b->size()), buf(b) {}
-bool Eof () const override { return TellI()>=buf->size(); }
+bool Eof () const override { return TellI()>=static_cast<wxFileOffset>(buf->size()); }
 };
 
 #endif

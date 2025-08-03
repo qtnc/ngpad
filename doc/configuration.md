@@ -2,6 +2,7 @@ Title: Configuration directives
 
 Key | Value type | Default value | Description
 -----|-----|-----|-----
+appearance | none, system, light, dark | none |General UI appearance (see below) 
 default_charset  | string | utf-8 | Default encoding for new files
 default_indent_size | integer | 4 | Default number of spaces of a level of indentation for new files
 default_indent_style |  tab, space | tab | Default type of indentation for new files
@@ -13,6 +14,12 @@ single_instance | boolean | true | Make sure a single instance is running (true)
 toolbar_style | icon, text, text single line, horizontal, vertical, top, bottom, left, right | horizontal top icon text | Style and alignment of the toolbar
 window_mode | sdi, mdi, notebook, auinotebook | auinotebook | Windowing mode (see below)
 workspace_root_indicators | string | | comma-separated list of file names which, when found, indicates the possible root of a project workspace
+
+## Appearance
+- none: don't try to configure appearance mode in any way (default)
+- system: configure appearance in light or dark mode, according to current system settings
+- light: configure appearance in light mode
+- dark: configure appearance in dark mode
 
 ## Session modes
 - never: never reload files opened at last session (default)

@@ -17,7 +17,7 @@ Key | Value type | Default value | Description
 -----|-----|-----|-----
 block_type | indentation, brace, xml, regex | indentation | Way to delimit blocks of code, for use with tree-based navigation with Alt+arrow keys
 camel_case_words | boolean | true | Whether to handle camel case words when moving the cursor by word with Ctrl+Left/Right
-editor | raw, rich1, rich2, stc  | rich2 | Type of text editor to use
+editor | raw, rich1, rich2, stc  | rich2 | Type of text editor to use (see below)
 include | string | | Another configuration file to include in place. Path is always relative to the current file. Can be repeated multiple times.
 line_wrap | boolean | false | Whether to automatically wrap long lines (true), or use horizontal scrollbar (false)
 marker_type | none, regex, markdown, xml, html | none | Type of marker, used for F2/Shift+F2 navigation and in the tree jump list

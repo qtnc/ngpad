@@ -9,6 +9,7 @@ LuaRegisterReferenceType(wxInputStream);
 LuaRegisterReferenceType(wxOutputStream);
 LuaRegisterValueType(wxWebRequest);
 LuaRegisterValueType(wxWebResponse);
+LuaRegisterTypeAlias(wxWebRequestBase, wxWebRequest);
 
 std::unordered_map<int, int> reqmap;
 
