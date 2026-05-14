@@ -117,6 +117,7 @@ initDocManager();
 
 if (!wxApp::OnInit()) return false;
 if (config.get("single_instance", true) && CheckSingleInstance(cmdLineArgs)) return false;
+worker.start();
 
 std::string lookMode = config.get("appearance", "none");
 if (lookMode=="system") SetAppearance(Appearance::System);
@@ -208,6 +209,7 @@ e.Skip();
 }
 
 int App::OnExit () {
+worker.stop();
 CloseSingleInstance();
 //CloseLua(L);
 

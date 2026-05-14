@@ -4,6 +4,7 @@
 #include "../common/Properties.hpp"
 #include "../common/wxUtils.hpp"
 #include "PluginInterface.hpp"
+#include "Worker.hpp"
 #include <wx/thread.h>
 #include <wx/accel.h>
 #include <wx/filename.h>
@@ -40,6 +41,9 @@ wxString appDir, userDir, userLocalDir;
 std::vector<wxAcceleratorEntry> accelerators;
 std::vector<wxString> cmdLineArgs;
 bool closing = false;
+
+Worker worker;
+wxCriticalSection globalSyncCS;
 
 friend void test();
 
@@ -113,6 +117,15 @@ wxString FindQuickJumpMatchingFilename (const wxString& pattern);
 
 template <class F> inline void RunEDT (const F& f) {
 wxGetApp().CallAfter(f);
+}
+
+template <class F> inline void RunEDTSync (const F& f) {
+auto& app = wxGetApp();
+app.CallAfter([&f](){
+wxCriticalSectionLocker lcs1(wxGetApp().globalSyncCS);
+f();
+});
+wxCriticalSectionLocker lcs0(app.globalSyncCS); 
 }
 
 
