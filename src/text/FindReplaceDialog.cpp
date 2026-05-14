@@ -254,16 +254,21 @@ return MakeFileTreeItem(tree, item, dirs, idx+1, itemState);
 void FindReplaceDialog::UpdateFindResults () {
 int nResults=0, nFiles=0;
 auto info = GetValue();
+wxGetApp().Submit([=, info = std::move(info)]()mutable{
 
 results.clear();
 try {
 info.FindAll(results, view, &nResults, &nFiles);
 } catch (std::exception& e) {
-resultLbl->SetLabel(U(e.what()));
+wxString reason = U(e.what());
+RunEDT([=, reason = std::move(reason)]()mutable{
+resultLbl->SetLabel(reason);
 LiveRegionUpdated(resultLbl);
 wxBell();
+});//RunEDT
 }
 
+RunEDTSync([&]()mutable{
 wxFileName fnRootDir = wxFileName::DirName(info.rootDir);
 wxTreeItemId root = foundTree->IsEmpty()? foundTree->AddRoot(wxEmptyString) : foundTree->GetRootItem();
 foundTree->UnselectAll();
@@ -289,6 +294,8 @@ resultLbl->SetLabel(U(
 format(GetTranslation(nFiles? "SRMultiResult" : "SRSimpleResult"), nResults, nFiles)
 + ":"));
 LiveRegionUpdated(resultLbl);
+}); // RunEDTSync
+}); // Worker submit
 }
 
 
@@ -379,7 +386,9 @@ return totalCount;
 
 bool FindReplaceInfo::FindAllInEditor (std::vector<FindResultInfo>& results, TextEditor* editor, const wxString& filename, bool onlySelection, int* nResults) {
 if (!editor) return false;
+wxString value;
 long start=0, end=0, startX=0, startY=0, endX=0, endY=0;
+RunEDTSync([&]()mutable{
 if (onlySelection) {
 editor->GetSelection(&start, &end);
 if (start>end) std::swap(start, end);
@@ -391,7 +400,8 @@ start = startX = startY = 0;
 end = editor->GetLastPosition();
 editor->PositionToXY(end, &endX, &endY);
 }
-wxString value = editor->GetValue();
+value = editor->GetValue();
+}); // RunEDTSync
 start = xyToPosition(value, startX, startY);
 end = xyToPosition(value, endX, endY);
 return FindAllInText(results, value, filename, start, end, nResults);

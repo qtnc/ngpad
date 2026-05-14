@@ -18,6 +18,7 @@
 #include<fstream>
 #include<functional>
 #include<memory>
+#include<future>
 
 class AbstractDocument;
 
@@ -43,7 +44,6 @@ std::vector<wxString> cmdLineArgs;
 bool closing = false;
 
 Worker worker;
-wxCriticalSection globalSyncCS;
 
 friend void test();
 
@@ -75,7 +75,6 @@ wxDocManager* GetDocManager () override { return docManager; }
 std::vector<wxAcceleratorEntry>& GetAccelerators () { return accelerators; }
 
 template <class F> inline void Submit (const F& f) { worker.submit(f); }
-inline wxCriticalSection& GetGlobalSyncCS () { return globalSyncCS; }
 
 void UpdateTitle ();
 void SayText (const wxString& text) override;
@@ -118,17 +117,25 @@ bool DoQuickJump (const wxString& cmd);
 wxString FindQuickJumpMatchingFilename (const wxString& pattern);
 };
 
-template <class F> inline void RunEDT (const F& f) {
-wxGetApp().CallAfter(f);
+template <class F> inline void RunEDT (F&& f) {
+if (wxIsMainThread()) std::forward<F>(f)();
+else wxGetApp().CallAfter(f);
 }
 
-template <class F> inline void RunEDTSync (const F& f) {
+template <class F> inline void RunEDTSync (F&& f) {
+if (wxIsMainThread()) { std::forward<F>(f)(); return; }
 auto& app = wxGetApp();
-app.CallAfter([&f](){
-wxCriticalSectionLocker lcs1(wxGetApp().GetGlobalSyncCS());
+auto promise = std::make_shared<std::promise<void>>();
+std::future<void> future = promise->get_future();
+app.CallAfter([promise, f = std::forward<F>(f)]()mutable{
+try {
 f();
+promise->set_value();
+} catch (...) {
+promise->set_exception(std::current_exception());
+}
 });
-wxCriticalSectionLocker lcs1(wxGetApp().GetGlobalSyncCS());
+future.get();
 }
 
 
