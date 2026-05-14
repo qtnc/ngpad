@@ -185,7 +185,7 @@ string_type getReplacement (const string_type& repl) {
 size_t origStart, origEnd, origLen;
 position(&origStart, &origEnd, 0);
 origLen = origEnd - origStart;
-size_t outLen = std::min(origLen * 2, 1024UZ);
+size_t outLen = std::min(origLen * 2, static_cast<size_t>(1024));
 char_type out[outLen] = { 0 };
 string_type replacement;
 int result = pcre2_substitute(reg, subject, subjlen, startpos, PCRE2_SUBSTITUTE_MATCHED | PCRE2_SUBSTITUTE_EXTENDED | PCRE2_SUBSTITUTE_REPLACEMENT_ONLY | PCRE2_SUBSTITUTE_OVERFLOW_LENGTH, data, nullptr, repl.data(), repl.size(), out, &outLen);

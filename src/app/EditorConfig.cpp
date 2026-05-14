@@ -16,7 +16,7 @@ const std::vector<std::string> STANDARD_EDITORCONFIG_KEYS = {
 };
 
 wxRegEx GlobToRegEx (const wxString& glob) {
-wxString r("^(?:.*[/\\\\])?"); 
+wxString r("^(?:.*[/\\\\])?(?:"); 
 int braceLevel = 0;
 for (size_t i=0, n=glob.size(); i<n; i++) {
 auto c = glob[i];
@@ -36,7 +36,7 @@ r += "(?:";
 braceLevel++;
 break;
 case '}':
-r += ')';
+if (braceLevel>0) r += ')';
 braceLevel--;
 break;
 case ',':
@@ -62,7 +62,8 @@ default:
 r+=c; 
 break;
 }}
-r += '$';
+for (int i=0; i<braceLevel; i++) r+=')';
+r += ")$";
 return wxRegEx(r, wxRE_ICASE);
 }
 
