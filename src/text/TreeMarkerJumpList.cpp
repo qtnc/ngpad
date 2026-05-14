@@ -1,4 +1,5 @@
 #include "TreeMarkerJumpList.hpp"
+#include "../app/App.hpp"
 #include "../common/println.hpp"
 
 
@@ -29,11 +30,15 @@ if (!force && (lastUpdate>=lastKeyPress || now-lastKeyPress<=1000)) return;
 lastUpdate = now;
 auto& df = editor->GetMarkerFinder();
 if (!&df) return;
+wxString text = editor->GetValue();
 long start=0, end=0, line=0, lastMarkerStart=0, lastMarkerLine=0;
 editor->GetSelection(&start, &end);
 line = editor->GetLineOfPosition(start);
 
-df.Reset(editor->GetValue());
+wxGetApp().Submit([=, &df, text = std::move(text)]()mutable{
+df.Reset(text);
+
+RunEDT([=, &df]()mutable{
 wxTreeItemId lastItem, itemToSelect, root = IsEmpty()? AddRoot(wxEmptyString) : GetRootItem();
 
 UnselectAll();
@@ -58,6 +63,7 @@ if (lastMarkerStart>0 && end>=lastMarkerStart) itemToSelect = lastItem;
 else if (lastMarkerLine>0 && line>=lastMarkerLine) itemToSelect = lastItem;
 Thaw();
 if (itemToSelect.IsOk()) SelectItem(itemToSelect);
+}); });//RunEDTSync+worker.submit
 }
 
 void TreeMarkerJumpList::OnItemActivate (wxTreeEvent& e) {

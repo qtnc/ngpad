@@ -74,6 +74,9 @@ lua_State* GetLuaState ();
 wxDocManager* GetDocManager () override { return docManager; }
 std::vector<wxAcceleratorEntry>& GetAccelerators () { return accelerators; }
 
+template <class F> inline void Submit (const F& f) { worker.submit(f); }
+inline wxCriticalSection& GetGlobalSyncCS () { return globalSyncCS; }
+
 void UpdateTitle ();
 void SayText (const wxString& text) override;
 bool IsClosing () { return closing; }
@@ -122,10 +125,10 @@ wxGetApp().CallAfter(f);
 template <class F> inline void RunEDTSync (const F& f) {
 auto& app = wxGetApp();
 app.CallAfter([&f](){
-wxCriticalSectionLocker lcs1(wxGetApp().globalSyncCS);
+wxCriticalSectionLocker lcs1(wxGetApp().GetGlobalSyncCS());
 f();
 });
-wxCriticalSectionLocker lcs0(app.globalSyncCS); 
+wxCriticalSectionLocker lcs1(wxGetApp().GetGlobalSyncCS());
 }
 
 
