@@ -15,7 +15,9 @@
 #include "../common/LiveRegion.hpp"
 #include "../common/pcre2cpp.hpp"
 #include "../common/println.hpp"
+#include<atomic>
 
+static std::atomic<int> findVersion(0);
 
 void LoadEditorConfig (Properties& properties, const wxString& filename);
 bool LoadFile (const wxString& filename, wxString& text, Properties& properties);
@@ -155,6 +157,7 @@ regUnicode->Enable(regex->IsChecked());
 
 void FindReplaceDialog::StartUpdateTimer () {
 if (timer) timer->StartOnce(1000);
+findVersion.fetch_add(1);
 }
 
 void FindReplaceDialog::OnCancel (wxCommandEvent& e) {
@@ -254,29 +257,39 @@ return MakeFileTreeItem(tree, item, dirs, idx+1, itemState);
 void FindReplaceDialog::UpdateFindResults () {
 int nResults=0, nFiles=0;
 auto info = GetValue();
+
 wxGetApp().Submit([=, info = std::move(info)]()mutable{
 
+info.version = findVersion.load();
 results.clear();
 try {
 info.FindAll(results, view, &nResults, &nFiles);
 } catch (std::exception& e) {
+if (!info.CheckVersion()) return;
 wxString reason = U(e.what());
-RunEDT([=, reason = std::move(reason)]()mutable{
+RunEDTSync([&]()mutable{
+if (!info.CheckVersion()) return;
 resultLbl->SetLabel(reason);
 LiveRegionUpdated(resultLbl);
 wxBell();
-});//RunEDT
+});//RunEDTSync
 }
 
+if (!info.CheckVersion()) return;
 RunEDTSync([&]()mutable{
+if (!info.CheckVersion()) return;
 wxFileName fnRootDir = wxFileName::DirName(info.rootDir);
 wxTreeItemId root = foundTree->IsEmpty()? foundTree->AddRoot(wxEmptyString) : foundTree->GetRootItem();
+wxTreeItemId fileItem = root;
+wxString lastFilename;
+
 foundTree->UnselectAll();
 foundTree->Freeze();
 foundTree->DeleteChildren(root);
 for (auto& result: results) {
-wxTreeItemId fileItem = root;
-if (!result.filename.empty()) {
+if (result.filename.empty()) fileItem = root;
+else if (result.filename!=lastFilename) {
+lastFilename = result.filename;
 wxFileName fn(result.filename);
 auto dirs = fn.GetDirs();
 dirs.push_back(fn.GetFullName());
@@ -298,6 +311,9 @@ LiveRegionUpdated(resultLbl);
 }); // Worker submit
 }
 
+bool FindReplaceInfo::CheckVersion () {
+return version == findVersion.load();
+}
 
 WXPCRE FindReplaceInfo::CreateRegEx () const {
 wxString find = this->find;
@@ -358,7 +374,9 @@ return editor;
 bool FindReplaceInfo::FindAllMultiple (std::vector<FindResultInfo>& results, int* nResults, int* nFiles) {
 wxArrayString files;
 FindAllFiles(rootDir, &files, glob, wxDIR_FILES | wxDIR_DIRS);
+if (!CheckVersion()) return false;
 for (auto& file: files) {
+if (!CheckVersion()) return false;
 auto editor = FindEditor(file);
 if (editor) FindAllInEditor(results, editor, file, flags&FRI_REPLACE);
 else FindAllInFile(results, file);

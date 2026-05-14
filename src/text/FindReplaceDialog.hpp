@@ -25,11 +25,11 @@ x(x0), y(y0), pos(pos0), len(len0), filename(file0), lineText(lineText0), foundT
 
 struct FindReplaceInfo {
 wxString find, replace, glob, rootDir;
-int flags;
+int flags, version;
 
-FindReplaceInfo (): find(), replace(), glob(), rootDir(), flags(0) {}
+FindReplaceInfo (): find(), replace(), glob(), rootDir(), flags(0), version(0) {}
 FindReplaceInfo (int x, const wxString& f = wxEmptyString, const wxString& r = wxEmptyString, const wxString& g = wxEmptyString, const wxString& d = wxEmptyString): 
-find(f), replace(r), glob(g), rootDir(d), flags(x) {}
+find(f), replace(r), glob(g), rootDir(d), flags(x), version(0) {}
 
 WXPCRE CreateRegEx () const;
 bool FindNext (const wxString& text, size_t& start, size_t& end) const;
@@ -43,6 +43,7 @@ int ReplaceAllMultiple (const std::vector<FindResultInfo>& results);
 int ReplaceAllInFile (const wxString& filename, const std::vector<size_t>& acceptedReplacements = {});
 int ReplaceAllInEditor (struct TextEditor* editor, const std::vector<size_t>& acceptedReplacements = {});
 int ReplaceAllInText (wxString& text, size_t delta, const std::vector<size_t>& acceptedReplacements = {});
+bool CheckVersion ();
 };
 
 class FindReplaceDialog: public wxDialog {
