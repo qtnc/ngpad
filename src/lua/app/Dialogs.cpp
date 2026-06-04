@@ -150,7 +150,7 @@ lua_setglobal(L, "Dialogs");
 //P filter: string: '': List of filters in a form like '*.txt|Text files'
 //P multiple: boolean: false: whether the user can choose multiple files (true) or only a single one (false, default)
 //R table: If the user selected one or more files to open, a table of filenames is returned, otherwise nil if the user cancelled the dialog box.
-lua_pushfield(L, "openFile", &dlgOpenFile, {"title", "directory", "filename", "filter", "multiple"});
+lua_pushfield(L, "openFile", SYNC(&dlgOpenFile), {"title", "directory", "filename", "filter", "multiple"});
 
 //F Open a dialog box where the user can choose a file to save to.
 //P title: string: '': title of the dialog box
@@ -158,20 +158,20 @@ lua_pushfield(L, "openFile", &dlgOpenFile, {"title", "directory", "filename", "f
 //P filename: string: '': Name of the file initially selected when the dialog box opens
 //P filter: string: '': List of filters in a form like '*.txt|Text files'
 //R string: if the user selected a file, it is returned, otherwise nil if the user cancelled the dialog box.
-lua_pushfield(L, "saveFile", &dlgSaveFile, {"title", "directory", "filename", "filter"});
+lua_pushfield(L, "saveFile", SYNC(&dlgSaveFile), {"title", "directory", "filename", "filter"});
 
 //F Open a dialog box where the user can choose one or more directories to open
 //P title: string: '': title of the dialog box
 //P directory: string: '': directory initially open when the dialog opens
 //P multiple: boolean: false: whether the user can choose multiple directories (true) or only a single one (false, default)
 //R table: If the user selected one or more directories to open, a table of directories is returned, otherwise nil if the user cancelled the dialog box.
-lua_pushfield(L, "openDirectory", &dlgOpenDir, {"title", "directory", "multiple"});
+lua_pushfield(L, "openDirectory", SYNC(&dlgOpenDir), {"title", "directory", "multiple"});
 
 //F Open a dialog box where the user can choose a directory to save into.
 //P title: string: '': title of the dialog box
 //P directory: string: '': directory initially open when the dialog opens
 //R string: If the user selected a directory, it is returned, otherwise nil if the user cancelled the dialog box.
-lua_pushfield(L, "saveDirectory", &dlgSaveDir, {"title", "directory"});
+lua_pushfield(L, "saveDirectory", SYNC(&dlgSaveDir), {"title", "directory"});
 
 //F Prompts the user to choose a single option among a list
 //P message: string: '': accompagning message displayed above the list of options
@@ -181,21 +181,21 @@ lua_pushfield(L, "saveDirectory", &dlgSaveDir, {"title", "directory"});
 //P sorted: boolean: false: true to automatically sort items in the list
 //R integer: the 1-based index of the option selected, or nil if the user cancelled the dialog box
 //R string: the string value of the selected option, or nil if the user cancelled the dialog box
-lua_pushfield(L, "chooseOne", &dlgChooseOne, {"message", "title", "options", "selection", "sorted"});
+lua_pushfield(L, "chooseOne", SYNC(&dlgChooseOne), {"message", "title", "options", "selection", "sorted"});
 
 //F prompts the user to enter some single line text
 //P message: string: '': accompagning message displayed above the input text field
 //P title: string: '': title of the dialog box
 //P value: string: '': the initial text value present in the text field when the dialog opens
 //R string: if the user clicked OK, the entered text is returned, otherwise nil if the user cancelled the dialog box.
-lua_pushfield(L, "prompt", &dlgTextEntry, {"message", "title", "value"});
+lua_pushfield(L, "prompt", SYNC(&dlgTextEntry), {"message", "title", "value"});
 
 //F prompts the user to enter a password
 //P message: string: '': accompagning message displayed above the input text field
 //P title: string: '': title of the dialog box
 //P value: string: '': the initial text value present in the text field when the dialog opens
 //R string: if the user clicked OK, the entered text is returned, otherwise nil if the user cancelled the dialog box.
-lua_pushfield(L, "promptPassword", &dlgPasswordEntry, {"message", "title", "value"});
+lua_pushfield(L, "promptPassword", SYNC(&dlgPasswordEntry), {"message", "title", "value"});
 
 //F prompts the user to enter an integer number
 //P message: string: '': accompagning message displayed above the input text field
@@ -205,7 +205,7 @@ lua_pushfield(L, "promptPassword", &dlgPasswordEntry, {"message", "title", "valu
 //P min: integer: 0: minimum value the user is allowed to enter
 //P max: integer: 100: maximum value the user is allowed to enter
 //R integer: if the user clicked OK, the entered value is returned, otherwise nil if the user cancelled the dialog box.
-lua_pushfield(L, "promptNumber", &dlgNumberEntry, {"message", "title", "prompt", "value", "min", "max"});
+lua_pushfield(L, "promptNumber", SYNC(&dlgNumberEntry), {"message", "title", "prompt", "value", "min", "max"});
 
 //F prompts the user to enter some credentials, i.e. username and password
 //P message: string: '': accompagning message displayed above the input text field
@@ -214,33 +214,35 @@ lua_pushfield(L, "promptNumber", &dlgNumberEntry, {"message", "title", "prompt",
 //P password: string: '': initial password when the dialog opens
 //R string: entered username, or nil if the user cancelled the dialog box
 //R string: entered password, or nil if the user cancelled the dialog box
-lua_pushfield(L, "promptCredentials", &dlgCredentialEntry, {"message", "title", "username", "password"});
+lua_pushfield(L, "promptCredentials", SYNC(&dlgCredentialEntry), {"message", "title", "username", "password"});
 
 //F Display a simple dialog box with an OK button, suitable for an informational message
 //P message: string: '': message displayed in the dialog box
 //P title: string: '': title of the dialog box
-lua_pushfield(L, "alert", &alert, {"message", "title"});
+lua_pushfield(L, "alert", SYNC(&alert), {"message", "title"});
+
 //F Display a simple dialog box with an OK button, suitable for a warning message
 //P message: string: '': message displayed in the dialog box
 //P title: string: '': title of the dialog box
-lua_pushfield(L, "warning", &warning, {"message", "title"});
+lua_pushfield(L, "warning", SYNC(&warning), {"message", "title"});
+
 //F Display a simple dialog box with an OK button, suitable for an error message
 //P message: string: '': message displayed in the dialog box
 //P title: string: '': title of the dialog box
-lua_pushfield(L, "error", &error, {"message", "title"});
+lua_pushfield(L, "error", SYNC(&error), {"message", "title"});
 
 //F Display a simple dialog box with Yes/No buttons
 //P message: string: '': message displayed in the dialog box
 //P title: string: '': title of the dialog box
 //R boolean: true if the user chose Yes, false if the user chose No or closed the dialog box
-lua_pushfield(L, "confirm", &confirm, {"message", "title"});
+lua_pushfield(L, "confirm", SYNC(&confirm), {"message", "title"});
 
 //F Display a simple dialog box with a combination of standard buttons
 //P message: string: '': message displayed in the dialog box
 //P title: string: '': title of the dialog box
 //P style: integer: nil: a combination of values telling which buttons and which icon to show.
 //R integer: the ID_XXX value corresponding to the button clicked by the user.
-lua_pushfield(L, "messageBox", &messageBox, {"message", "title", "style"});
+lua_pushfield(L, "messageBox", SYNC(&messageBox), {"message", "title", "style"});
 
 //F Display a simple dialog box with a message and custom buttons
 //P message: string: '': message displayed in the dialog box
@@ -249,16 +251,16 @@ lua_pushfield(L, "messageBox", &messageBox, {"message", "title", "style"});
 //P defaultButton: integer: 1: 1-based index of the default button initially selected when the dialog box opens
 //P cancelButton: integer: 0: 1-based index of a button that will be triggered when escape is pressed. By default, escape doesn't allow to close implicitly the dialog box.
 //R integer: the 1-based index of the button selected by the user
-lua_pushfield(L, "messageBoxEx", &messageBoxEx, {"message", "title", "buttons", "defaultButton", "cancelButton"});
+lua_pushfield(L, "messageBoxEx", SYNC(&messageBoxEx), {"message", "title", "buttons", "defaultButton", "cancelButton"});
 
 
 //F Open a dialog box presenting a web page
 //P url: string: nil: URL of the web page to show. Can also be some HTML code directly.
-lua_pushfield(L, "webViewBox", &dlgWebView, {"url"});
+lua_pushfield(L, "webViewBox", SYNC(&dlgWebView), {"url"});
 
 //F Open the default browser of the system and navigate to the given URL
 //P url: string: nil: URL to open
-lua_pushfield(L, "browse", &openBrowser, {"url"});
+lua_pushfield(L, "browse", SYNC(&openBrowser), {"url"});
 
 //F Show a dialog box with a short text, and a longer text that can be shown when pressing on  a detail toggle button
 //P message: string: nil: a long message that will initially be hidden
@@ -266,7 +268,7 @@ lua_pushfield(L, "browse", &openBrowser, {"url"});
 //P hint: string: nil: short text which will always be visible
 //P style: integer: nil: a value indicating which standard buttons and icons to show
 //R integer: the ID of the button clicked by the user
-lua_pushfield(L, "messageDetailBox", &dlgReadOnlyText, {"message", "title", "hint", "style"});
+lua_pushfield(L, "messageDetailBox", SYNC(&dlgReadOnlyText), {"message", "title", "hint", "style"});
 
 #define C(N) lua_pushfield(L, #N, wx##N);
 

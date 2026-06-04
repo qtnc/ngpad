@@ -46,51 +46,61 @@ Binding::LuaClass<App>(L, "App")
 
 //G string: current language of the application
 .getter("locale", &App::GetLocale)
+
 //G string: directory where the executable of the application is found
 .getter("applicationDirectory", &App::GetAppDir)
+
 //G string: directory where user settings are stored
 .getter("userDataDirectory", &App::GetUserDir)
+
 //G string: directory where local user settings are stored
+
 .getter("userLocalDataDirectory", &App::GetUserLocalDir)
 //M Get a configuration key
 //P key: string: nil: the configuration key to get
 //R string: the configuration value, or an empty string if nothing is defined for that key
 .method("getConfig", &AppGetConfigKey)
+
 //M Get a translation key
 //P key: string: nil: the translation key to get
 //R string: the translation corresponding to that key, or an empty string if it was not found
 .method("getTranslation", &AppGetTranslationKey)
 
 //G table: Table of all documents currently opened in the application
-.getter("documents", &AppGetDocuments)
+.getter("documents", SYNC(&AppGetDocuments))
+
 //G Document: The currently active document
-.getter("currentDocument", &App::GetCurrentDocument)
+.getter("currentDocument", SYNC(&App::GetCurrentDocument))
+
 //M Open the specified filename, or reactivate (put its tab/window in front) if it's already open
 //P filename: string: nil: file to open or reactivate
 //R Document: the document opened or reactivated
-.method("openDocument", &App::OpenOrCreateDocument)
+.method("openDocument", SYNC(&App::OpenOrCreateDocument))
+
 //M Open a new tab/window with an empty document
-.method("openNewDocument", &AppCreateNewDoc)
+.method("openNewDocument", SYNC(&AppCreateNewDoc))
+
 //M Execute a command and put the result in a new tab/window. This is equivalent to Tools>Run... or F10
 //P command: string: nil: command to execute
 //R boolean: true if the execution succeeded. 
-.method("execute", &App::ExecuteCommand)
+.method("execute", SYNC(&App::ExecuteCommand))
+
 //M Execute a quick jump command. This is equivalent to Ctrl+J
 //P command: string: nil: quick jump command to execute
 //R boolean: true if the quick jump command succeeded
-.method("quickJump", &App::DoQuickJump)
+.method("quickJump", SYNC(&App::DoQuickJump))
 
 //F send some text to the live region, to be spoken by screen readers
 //P text: string: nil: text to be spoken by screen readers
-.method("sayText", &AppSayText)
+.method("sayText", SYNC(&AppSayText))
 
 //F Set the text of the clipboard
 //P text: string: nil: text to put into the clipboard
-.method("setClipboardText", &SetClipboardText)
+.method("setClipboardText", SYNC(&SetClipboardText))
 
 //F Get the current text of the clipboard
 //R string: text of the clipboard
-.method("getClipboardText", &GetClipboardText)
+.method("getClipboardText", SYNC(&GetClipboardText))
 
 .pop();
 lua_getglobal(L, "App");

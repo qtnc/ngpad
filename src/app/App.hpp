@@ -122,22 +122,31 @@ if (wxIsMainThread()) std::forward<F>(f)();
 else wxGetApp().CallAfter(f);
 }
 
-template <class F> inline void RunEDTSync (F&& f) {
-if (wxIsMainThread()) { std::forward<F>(f)(); return; }
+template <class F> inline decltype(auto) RunEDTSync (F&& f) {
+using Fn = std::decay_t<F>;
+using R = std::invoke_result_t<Fn&>;
+if (wxIsMainThread()) return std::forward<F>(f)(); 
 auto& app = wxGetApp();
-auto promise = std::make_shared<std::promise<void>>();
-std::future<void> future = promise->get_future();
-app.CallAfter([promise, f = std::forward<F>(f)]()mutable{
-try {
-f();
-promise->set_value();
-} catch (...) {
-promise->set_exception(std::current_exception());
+    auto fn = std::make_shared<Fn>(std::forward<F>(f));
+    auto promise = std::make_shared<std::promise<R>>();
+    auto future = promise->get_future();
+    wxGetApp().CallAfter([fn, promise]() mutable {
+        try {
+            if constexpr (std::is_void_v<R>) {
+                (*fn)();
+                promise->set_value();
+            } else {
+                promise->set_value((*fn)());
+            }
+        } catch (...) {
+            promise->set_exception(std::current_exception());
+        }
+    });
+    if constexpr (std::is_void_v<R>)         future.get();
+else {
+        return future.get();
+    }
 }
-});
-future.get();
-}
-
 
 #endif
 
