@@ -34,30 +34,35 @@ lua_pushglobaltable(L);
 Binding::LuaClass<wxTimer>(L, "Timer")
 .destructor()
 //C Timer constructor
-.constructor(&TimerCreate)
+.constructor(SYNC(&TimerCreate))
+
 //M Bind an event handler to this timer
 //P handler: function: nil: event handler to be triggered when the time is out
 //R handler: a event handle that can be passed to app.unbind
-.method("bind", &TimerBind)
+.method("bind", SYNC(&TimerBind))
+
 //M Start the timer and run it periodically or one shot. If the timer is already running, it is reset.
 //P interval: integer: -1: interval in miliseconds. If 0 or negative, use the previous interval.
 //P oneShot: boolean: false: set time timer to be periodic (false) or one shot (true)
 //R boolean: true if the timer has started, false if it was unable to start
-.method("start", &TimerStart, {"interval", "oneShot"})
+.method("start", SYNC(&TimerStart), {"interval", "oneShot"})
+
 //M Start the timer tand run it only once (one shot). If the timer is already running, it is reset.
 //P interval: integer: -1: interval in miliseconds. If 0 or negative, use the previous interval.
 //R boolean: true if the timer has started, false if it was unable to start
-.method("startOnce", &TimerStartOnce, {"interval"})
+.method("startOnce", SYNC(&TimerStartOnce), {"interval"})
+
 //M Stops the timer if it's running.
-.method("stop", &wxTimer::Stop)
+.method("stop", SYNC(&wxTimer::Stop))
+
 //G integer: ID of the event generated
-.getter("id", &wxTimer::GetId)
+.getter("id", SYNC(&wxTimer::GetId))
 //G integer: interval of the timer in miliseconds
-.getter("interval", &wxTimer::GetInterval)
+.getter("interval", SYNC(&wxTimer::GetInterval))
 //G boolean: tells if the timer is currently running (true) or stopped (false).
-.boolGetter("running", &wxTimer::IsRunning)
+.boolGetter("running", SYNC(&wxTimer::IsRunning))
 //G boolean: tells if the timer is periodic (false) or one shot (true).
-.boolGetter("oneShot", &wxTimer::IsOneShot)
+.boolGetter("oneShot", SYNC(&wxTimer::IsOneShot))
 .pop();
 lua_getglobal(L, "Timer");
 return 1;

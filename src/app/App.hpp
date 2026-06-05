@@ -175,7 +175,7 @@ future.get();
 cs.Enter();
 }
 else {
-auto re = future.get();
+R re = future.get();
 cs.Enter();
 return re;
     }

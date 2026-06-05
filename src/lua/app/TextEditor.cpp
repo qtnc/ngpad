@@ -93,92 +93,92 @@ Binding::LuaClass<wxTextCtrlIface>(L, "TextEditor")
 .referenceEquals()
 
 //A boolean: tells if the zone is editable
-.boolProperty("editable", &wxTextCtrlIface::IsEditable, &wxTextCtrlIface::SetEditable)
+.boolProperty("editable", SYNC(&wxTextCtrlIface::IsEditable), SYNC(&wxTextCtrlIface::SetEditable))
 //G boolean: tells if the zone is empty
-.boolGetter("empty", &wxTextCtrlIface::IsEmpty)
+.boolGetter("empty", SYNC(&wxTextCtrlIface::IsEmpty))
 //M Gets the total number of lines of the zone
 //R integer: number of lines of the zone
-.method("getNumberOfLines", &wxTextCtrlIface::GetNumberOfLines)
+.method("getNumberOfLines", SYNC(&wxTextCtrlIface::GetNumberOfLines))
 //M Get the length of a line
 //P line: integer: 0: 1-based line number, 0=current line, negatives counts from the end.
 //R integer: length of the given line
-.method("getLineLength", &TextCtrlGetLineLength)
+.method("getLineLength", SYNC(&TextCtrlGetLineLength))
 //M Get a line of text from the zone
 //P line: integer: 0: 1-based line number, 0=current line, negatives counts from the end.
 //R string: the text of the given line
-.method("getLine", &TextCtrlGetLineText)
+.method("getLine", SYNC(&TextCtrlGetLineText))
 //M Checks if some text can be copied right now
 //R boolean: true if some text can be copied
-.method("canCopy", &wxTextCtrlIface::CanCopy)
+.method("canCopy", SYNC(&wxTextCtrlIface::CanCopy))
 //M Checks if some text can be cut right now
 //R boolean: true if some text can be cut
-.method("canCut", &wxTextCtrlIface::CanCut)
+.method("canCut", SYNC(&wxTextCtrlIface::CanCut))
 //M Checks if some text can be pasted right now
 //R boolean: true if some text can be pasted
-.method("canPaste", &wxTextCtrlIface::CanPaste)
+.method("canPaste", SYNC(&wxTextCtrlIface::CanPaste))
 //M Checks if the last operation can be undone
 //R boolean: true if the last operation can be undone
-.method("canUndo", &wxTextCtrlIface::CanUndo)
+.method("canUndo", SYNC(&wxTextCtrlIface::CanUndo))
 //M Checks if the last operation can be redone
 //R boolean: true if the last operation can be redone
-.method("canRedo", &wxTextCtrlIface::CanRedo)
+.method("canRedo", SYNC(&wxTextCtrlIface::CanRedo))
 //A boolean: Tells if the text content of the zone has been modified since the last save
-.boolProperty("modified", &wxTextCtrlIface::IsModified, &wxTextCtrlIface::SetModified)
+.boolProperty("modified", SYNC(&wxTextCtrlIface::IsModified), SYNC(&wxTextCtrlIface::SetModified))
 //M Append some text at the end of the zone
 //P text: string: nil: text to append
-.method("appendText", &wxTextCtrlIface::AppendText)
+.method("appendText", SYNC(&wxTextCtrlIface::AppendText))
 //M Write some text at the current insertion point
 //P text: string: nil: text to write
-.method("writeText", &wxTextCtrlIface::WriteText)
+.method("writeText", SYNC(&wxTextCtrlIface::WriteText))
 //M Convert a Column/Line based position into a character position
 //P x: integer: nil: X coordinate / column (1-based)
 //P y: integer: nil: Y coordinate / Line (1-based, 0=current line, negatives counts from the end.
 //R integer: 1-based charachter position
-.method("columnLineToPosition", &TextCtrlXYToPosition)
+.method("columnLineToPosition", SYNC(&TextCtrlXYToPosition))
 //M Convert a 1-based character position into an X/Y or Column/Line based position
 //P position: integer: 0: 1-based character position, 0=current position.
 //R integer: X coordinate / Column
 //R integer: Y coordinate / Line
-.method("positionToColumnLine", &TextCtrlPositionToXY)
+.method("positionToColumnLine", SYNC(&TextCtrlPositionToXY))
 //G integer: position corresponding to the end of the zone
-.getter("lastPosition", &wxTextCtrlIface::GetLastPosition)
+.getter("lastPosition", SYNC(&wxTextCtrlIface::GetLastPosition))
 //M Select the entire zone
-.method("selectAll", &wxTextCtrlIface::SelectAll)
+.method("selectAll", SYNC(&wxTextCtrlIface::SelectAll))
 //M Deselect everything
-.method("selectNone", &wxTextCtrlIface::SelectNone)
+.method("selectNone", SYNC(&wxTextCtrlIface::SelectNone))
 //M Get a range of text from the zone
 //P start: integer: nil: start of the range (1-based, negatives counts from the end)
 //P end: integer: nil: end of the range (1-based, negatives counts from the end)
 //R string: the requested range of text
-.method("getRange", &TextCtrlGetRange)
+.method("getRange", SYNC(&TextCtrlGetRange))
 //G string: currently selected text
-.getter("selectedText", &wxTextCtrlIface::GetStringSelection)
+.getter("selectedText", SYNC(&wxTextCtrlIface::GetStringSelection))
 //M Get the current position of the selection anchor and end points (1-based)
 //R integer: anchor point of the current selection
 //R integer: end point of the current selection
-.method("getSelection", &TextCtrlGetSelection)
+.method("getSelection", SYNC(&TextCtrlGetSelection))
 //M Change the selection anchor and end points
 //P start: integer: nil: selection start / anchor point (1-based, negatives counts from the end)
 //P end: integer: nil: selection end point (1-based, negatives counts from the end)
-.method("setSelection", &TextCtrlSetSelection)
+.method("setSelection", SYNC(&TextCtrlSetSelection))
 //A integer: current position of the insertion point (1-based)
-.property("insertionPoint", &TextCtrlGetInsertionPoint, &TextCtrlSetInsertionPoint)
+.property("insertionPoint", SYNC(&TextCtrlGetInsertionPoint), SYNC(&TextCtrlSetInsertionPoint))
 //A string: entire text of the zone
-.property("value", &wxTextCtrlIface::GetValue, &wxTextCtrlIface::SetValue)
+.property("value", SYNC(&wxTextCtrlIface::GetValue), SYNC(&wxTextCtrlIface::SetValue))
 //M Change the content of the zone without triggering events
 //P text: string: nil: new text
-.method("changeValue", &wxTextCtrlIface::ChangeValue)
+.method("changeValue", SYNC(&wxTextCtrlIface::ChangeValue))
 //M Remove some text from the zone
 //P start: integer: nil: position of the first character to remove (1-based, negatives counts from the end)
 //P end: integer: nil: position of the last character to remove (1-based, negatives counts from the end)
-.method("remove", &TextCtrlRemove)
+.method("remove", SYNC(&TextCtrlRemove))
 //M Remove some text from the zone and replace it by something else
 //P start: integer: nil: position of the first character to remove (1-based, negatives counts from the end)
 //P end: integer: nil: position of the last character to remove (1-based, negatives counts from the end)
 //P replacement: string: '': new text to be inserted at the place of the removed region
-.method("replace", &TextCtrlReplace)
+.method("replace", SYNC(&TextCtrlReplace))
 //M Clear the entire zone
-.method("clear", &wxTextCtrlIface::Clear)
+.method("clear", SYNC(&wxTextCtrlIface::Clear))
 .pop();
 lua_getglobal(L, "TextEditor");
 

@@ -72,31 +72,44 @@ break;
 
 
 export int luaopen_WebRequest (lua_State* L) {
+static bool registered = false;
+if (!registered) {
+registered = true;
 wxGetApp() .Bind(wxEVT_WEBREQUEST_STATE, &requestStateChanged);
+}
 
 lua_pushglobaltable(L);
 //T Object containing a response to a web request
 Binding::LuaClass<wxWebResponse>(L, "WebResponse")
+
 //G integer: size in bytes of the response, or -1 if unknown
 .getter("contentLength", &wxWebResponse::GetContentLength)
 //M Get a response header 
 //P name: string: nil: header name
 //R string: header value, or empty string if not found
 .method("getHeader", &wxWebResponse::GetHeader)
+
 //G string: Content type of the response
 .getter("contentType", &wxWebResponse::GetMimeType)
+
 //G integer: HTTP response code of the response, for example 200
 .getter("status", &wxWebResponse::GetStatus)
+
 //G string: Text of the HTTP response code, for example 'OK'
 .getter("statusText", &wxWebResponse::GetStatusText)
+
 //G InputStream: Get an input stream for reading the response content
 .getter("responseStream", &wxWebResponse::GetStream)
+
 //G string: suggested file name for downloading a file
 .getter("suggestedFileName", &wxWebResponse::GetSuggestedFileName)
+
 //G string: final URL of the resource. This can be different from the original requested URL in case of redirection.
 .getter("url", &wxWebResponse::GetURL)
+
 //G string: file name where the response is stored if storing in a file was requested
 .getter("responseFileName", &wxWebResponse::GetDataFile)
+
 //G string: content of the response as a string. Note that the string is returned as it is read. It may not be encoded in UTF-8, and may even be binary data not humanly readable.
 .getter("responseText", &wxWebResponse::AsString)
 .pop();
@@ -110,22 +123,27 @@ Binding::LuaClass<wxWebRequest>(L, "WebRequest")
 //P contentType: string: nil: Content-Type for request content
 //P contentLength: integer: nil: length of the request content in bytes
 .constructor(&wrCreate, {"url", "method", "data", "contentType", "contentLength"})
+
 //M Set the request body
 //P data: string|InputStream: nil: string or input stream of the request body
 //P contentType: string: nil: Content-Type of the request body
 //P contentLength: integer: nil: length of the data in bytes
 .method("setData", &wrSetData)
+
 //M SEt a request header
 //P name: string: nil: header name
 //P value: string: nil: header value
 .method("setHeader", &wxWebRequest::SetHeader)
+
 //S string: HTTP method of the request
 .setter("method", &wxWebRequest::SetMethod)
+
 //A boolean: whether to ignore SSL/TLS certificate verifications. Note that disabling SSL/TLS certificate verifications make requests less secure.
 .boolProperty("verifyDisabled", &wxWebRequest::IsPeerVerifyDisabled, &wxWebRequest::DisablePeerVerify)
+
 //M Effectively launch the web request. The request is launched asynchronously, and a callback function is called when the response is fully received.
 //P callback: function: nil: function to call when the response is received. The fonction receive a WebResponse object as parameter.
-.method("submit", &wrStart)
+.method("submit", SYNC(&wrStart))
 .destructor()
 .pop();
 lua_getglobal(L, "WebRequest");
