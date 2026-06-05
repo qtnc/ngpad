@@ -123,56 +123,68 @@ Binding::LuaClass<AbstractDocument>(L, "Document")
 .referenceEquals()
 
 //M Activate the document and make it visible
-.method("activate", &AbstractDocument::Activate)
+.method("activate", SYNC(&AbstractDocument::Activate))
+
 //M Close the document
-.method("close", &AbstractDocument::Close)
+.method("close", SYNC(&AbstractDocument::Close))
+
 //M Save the document
-.method("save", &AbstractDocument::Save)
+.method("save", SYNC(&AbstractDocument::Save))
+
 //M Save the document under another name. This opens the "Save as" dialog box.
-.method("saveAs", &AbstractDocument::SaveAs)
+.method("saveAs", SYNC(&AbstractDocument::SaveAs))
+
 //M Revert the document to the state of its last save.
-.method("revert", &AbstractDocument::Revert)
+.method("revert", SYNC(&AbstractDocument::Revert))
+
 //M Reload the document from disk and update the display.
-.method("reload", &AbstractDocument::Reload)
+.method("reload", SYNC(&AbstractDocument::Reload))
 
 //M Bind an accelerator to an action
 //P accelerator: string: nil: accelerator to bind
 //P action: function: nil: action to execute when the accelerator is triggered
 //R handler: an object that can be passed to unbind() in order to cancel the event
-.method("bindAccelerator", &DocBindAccelerator)
+.method("bindAccelerator", SYNC(&DocBindAccelerator))
 
 //G boolean: tells if the document hasn't been modified since the last save
-.boolGetter("alreadySaved", &AbstractDocument::AlreadySaved)
+.boolGetter("alreadySaved", SYNC(&AbstractDocument::AlreadySaved))
+
 //A boolean: tells if the document has already been saved
-.boolProperty("saved", &AbstractDocument::GetDocumentSaved, &AbstractDocument::SetDocumentSaved)
+.boolProperty("saved", SYNC(&AbstractDocument::GetDocumentSaved), SYNC(&AbstractDocument::SetDocumentSaved))
+
 //A boolean: tells if the document has been modified since its last save.
-.boolProperty("modified", &AbstractDocument::IsModified, &AbstractDocument::Modify)
+.boolProperty("modified", SYNC(&AbstractDocument::IsModified), SYNC(&AbstractDocument::Modify))
+
 //G string: type of document
-.getter("type", &AbstractDocument::GetDocumentName)
+.getter("type", SYNC(&AbstractDocument::GetDocumentName))
 
 //G MenuBar: Menu bar of the document
-.getter("menus", &DocGetMenus)
+.getter("menus", SYNC(&DocGetMenus))
+
 //G ToolBar: Toolbar of the document
-.getter("tools", &DocGetTools)
+.getter("tools", SYNC(&DocGetTools))
+
 //G TextEditor: Text edition zone of the document
-.getter("editor", &DocGetEditor)
+.getter("editor", SYNC(&DocGetEditor))
+
 //A string: content of the status bar
-.property("status", &DocGetStatus, &DocSetStatus)
+.property("status", SYNC(&DocGetStatus), SYNC(&DocSetStatus))
 
 //M Get a property of this document
 //P key: string: nil: name of the property to get
 //R any: value of the property or nil if not found
-.method("getProperty", &DocGetProperty)
+.method("getProperty", SYNC(&DocGetProperty))
 //M Sets a property for this document
 //P key: string: nil: name of the property to set
 //P value: any: nil: value to set
-.method("setProperty", &DocSetProperty)
+.method("setProperty", SYNC(&DocSetProperty))
 //A table: all properties of the document
-.property("properties", &DocGetAllProperties, &DocSetAllProperties)
+.property("properties", SYNC(&DocGetAllProperties), SYNC(&DocSetAllProperties))
+
 //A string: File name from and into which the document is loaded and saved on disk
-.property("filename", &AbstractDocument::GetFilename, &AbstractDocument::SetFilename)
+.property("filename", SYNC(&AbstractDocument::GetFilename), SYNC(&AbstractDocument::SetFilename))
 //A string: Title of the window or tab for this document
-.property("title", &AbstractDocument::GetUserReadableName, &AbstractDocument::SetTitle)
+.property("title", SYNC(&AbstractDocument::GetUserReadableName), SYNC(&AbstractDocument::SetTitle))
 
 .pop();
 lua_getglobal(L, "Document");

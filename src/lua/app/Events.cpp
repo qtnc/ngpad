@@ -22,6 +22,7 @@ virtual ~LuaEventHandler () {
 luaL_unref(L, LUA_REGISTRYINDEX, ref);
 }
 bool operator() (wxEvent& e) {
+LockLuaCS(L);
 lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
 lua_push(L, e);
 if (LUA_OK != luaL_call(L, 1, 1)) throw std::runtime_error(lua_tostring(L, -1));
@@ -93,8 +94,10 @@ lua_pushglobaltable(L);
 
 //T Parent class of all events
 Binding::LuaClass<wxEvent>(L, "Event")
+
 //G Document document in which the event took place
-.getter("document", &EventGetDoc)
+.getter("document", SYNC(&EventGetDoc))
+
 //G integer: ID of the element or control where the event took place
 .property("id", &wxEvent::GetId, &wxEvent::SetId)
 //A integer: type of the event
@@ -103,9 +106,9 @@ Binding::LuaClass<wxEvent>(L, "Event")
 .property("timestamp", &wxEvent::GetTimestamp, &wxEvent::SetTimestamp)
 //M Set the skip state of the event
 //P skip: boolean: true: skip state
-.method("skip", &EventSkip)
+.method("skip", SYNC(&EventSkip))
 //A boolean: skipped state of the event
-.property("skipped", &wxEvent::GetSkipped, &EventSkip)
+.property("skipped", &wxEvent::GetSkipped, SYNC(&EventSkip))
 .pop();
 
 //T Base class of all elements and controls that can react to events
@@ -116,12 +119,13 @@ Binding::LuaClass<wxEvtHandler>(L, "EventHandler")
 //P toId: integer: nil: maximum ID for which the event must be processed. This parameter can be totally omited.
 //P handler: function: nil: event function to call when the event occurrs. The function must always be the last parameter.
 //R handler: an object that can be passed to unbind() in order to cancel the event
-.method("bind", &EvtHandlerBind)
+.method("bind", SYNC(&EvtHandlerBind))
+
 //M unbind an event previously bount with bind()
 //P handler: handler: nil: event handler to unbind
-.method("unbind", &EvtHandlerUnbind)
-.pop();
+.method("unbind", SYNC(&EvtHandlerUnbind))
 
+.pop();
 lua_pop(L, 1);
 lua_getglobal(L, "Event");
 

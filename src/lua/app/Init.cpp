@@ -91,34 +91,37 @@ return result;
 }
 
 void LoadPlugins (App& app, Properties& props) {
-lua_State* L = nullptr;
 std::vector<std::string> pluginList = split(props.get("plugin", ""), ",;\t\r\n", true);
 for (auto& name: pluginList) {
 trim(name);
 if (name.empty()) continue;
 if (app.LoadPlugin(name)) continue;
-if (!L) {
-L = app.GetLuaState();
+lua_State* L = app.GetLuaState();
+LockLuaCS(L);
 lua_getglobal(L, "require");
-}
-lua_pushvalue(L, -1);
 lua_push(L, name);
 if (luaL_call(L, 1, 1)) throw std::runtime_error(lua_tostring(L,-1));
 lua_pop(L, 1);
 }
-if (L) lua_pop(L, 1);
 }
 
 void CloseLua (lua_State*& L) {
 if (!L) return;
+wxCriticalSection* cs = *reinterpret_cast<wxCriticalSection**>( lua_getextraspace(L));
+cs->Enter();
 lua_close(L);
 L = nullptr;
+cs->Leave();
+delete cs;
 }
 
 void InitLua (lua_State*& L) {
 CloseLua(L);
 auto& app = wxGetApp();
 L = luaL_newstate();
+wxCriticalSection** cs = reinterpret_cast<wxCriticalSection**>( lua_getextraspace(L));
+*cs = new wxCriticalSection();
+wxCriticalSectionLocker csl(**cs);
 lua_setwarnf(L, &luaWarn, nullptr);
 luaL_openlibs(L);
 luaopen_DynamicLoad(L);

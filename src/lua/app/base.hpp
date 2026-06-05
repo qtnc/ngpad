@@ -19,6 +19,11 @@ extern "C" {
 #define export extern "C" 
 #endif
 
+extern thread_local lua_State* currentLuaState;
+
+#define GetLuaCS(L) **reinterpret_cast<wxCriticalSection**>( lua_getextraspace(L))
+#define LockLuaCS(L) currentLuaState=L; wxCriticalSectionLocker csl##__LINE__ (GetLuaCS(L))
+
 template <auto Method>
 struct SyncWrapper;
 
@@ -26,11 +31,11 @@ template <class R, class... Args, R (*Method)(Args...)>
 struct SyncWrapper<Method> {
     static R wrapper(Args... args) {
         if constexpr (std::is_void_v<R>) {
-            RunEDTSync([&]() -> void {
+            RunEDTSync(GetLuaCS(currentLuaState), [&]() -> void {
                 Method(std::forward<Args>(args)...);
             });
         } else {
-            return RunEDTSync([&]() -> R {
+            return RunEDTSync(GetLuaCS(currentLuaState), [&]() -> R {
                 return Method(std::forward<Args>(args)...);
             });
         }
@@ -42,11 +47,11 @@ template <class C, class R, class... Args, R (C::*Method)(Args...)>
 struct SyncWrapper<Method> {
     static R wrapper(C& obj, Args... args) {
         if constexpr (std::is_void_v<R>) {
-            RunEDTSync([&]() -> void {
+            RunEDTSync(GetLuaCS(currentLuaState), [&]() -> void {
                 (obj.*Method)(std::forward<Args>(args)...);
             });
         } else {
-            return RunEDTSync([&]() -> R {
+            return RunEDTSync(GetLuaCS(currentLuaState), [&]() -> R {
                 return (obj.*Method)(std::forward<Args>(args)...);
             });
         }
@@ -57,11 +62,11 @@ template <class C, class R, class... Args, R (C::*Method)(Args...) const>
 struct SyncWrapper<Method> {
     static R wrapper(const C& obj, Args... args) {
         if constexpr (std::is_void_v<R>) {
-            RunEDTSync([&]() -> void {
+            RunEDTSync(GetLuaCS(currentLuaState), [&]() -> void {
                 (obj.*Method)(std::forward<Args>(args)...);
             });
         } else {
-            return RunEDTSync([&]() -> R {
+            return RunEDTSync(GetLuaCS(currentLuaState), [&]() -> R {
                 return (obj.*Method)(std::forward<Args>(args)...);
             });
         }

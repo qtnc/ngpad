@@ -1,5 +1,7 @@
 #include "base.hpp"
 
+thread_local lua_State* currentLuaState = nullptr;
+
 int lua_iswxpoint (lua_State* L, int idx) {
 if (!lua_istable(L, idx)) return false; 
 bool result = false; 

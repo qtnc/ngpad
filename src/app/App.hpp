@@ -148,5 +148,38 @@ else {
     }
 }
 
+template <class F> inline decltype(auto) RunEDTSync (wxCriticalSection& cs, F&& f) {
+using Fn = std::decay_t<F>;
+using R = std::invoke_result_t<Fn&>;
+if (wxIsMainThread()) return std::forward<F>(f)(); 
+auto& app = wxGetApp();
+    auto fn = std::make_shared<Fn>(std::forward<F>(f));
+    auto promise = std::make_shared<std::promise<R>>();
+    auto future = promise->get_future();
+cs.Leave();
+    wxGetApp().CallAfter([fn, promise, &cs]() mutable {
+wxCriticalSectionLocker csl(cs);
+        try {
+            if constexpr (std::is_void_v<R>) {
+                (*fn)();
+                promise->set_value();
+            } else {
+                promise->set_value((*fn)());
+            }
+        } catch (...) {
+            promise->set_exception(std::current_exception());
+        }
+    });
+    if constexpr (std::is_void_v<R>)         {
+future.get();
+cs.Enter();
+}
+else {
+auto re = future.get();
+cs.Enter();
+return re;
+    }
+}
+
 #endif
 

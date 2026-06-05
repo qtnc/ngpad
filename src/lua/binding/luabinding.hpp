@@ -77,7 +77,8 @@ if (x) { \
 delete x; \
 x = nullptr; \
 } }  \
-}; }
+}; \
+}
 
 #define LuaRegisterValueTypeUV(T,NUVALUES) \
 namespace Binding { \
@@ -121,7 +122,8 @@ if (x) { \
 delete x; \
 x = nullptr; \
 } }  \
-}; }
+}; \
+}
 
 #define LuaRegisterSlotAccessors(T,CHECK,GET,PUSH) \
 namespace Binding { \
@@ -178,7 +180,7 @@ template <class T> struct LuaGetSlot<T&, typename std::enable_if<is_managed_clas
 typedef T& returnType;
 static inline bool check (lua_State* L, int idx) { return !!luaL_testutype(L, idx, UserObjectTrait<T>::typeTag()); }
 static inline T& get (lua_State* L, int idx) {
-return *UserObjectTrait<T>::getPointer( luaL_checkutype(L, idx, UserObjectTrait<T>::typeTag()) );
+return *UserObjectTrait<typename std::remove_const<T>::type>::getPointer( luaL_checkutype(L, idx, UserObjectTrait<typename std::remove_const<T>::type>::typeTag()) );
 }};
 
 template <class T> struct LuaGetSlot<T, typename std::enable_if< is_managed_class<T>::value>::type> {
