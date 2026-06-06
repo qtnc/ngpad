@@ -50,6 +50,7 @@ return 0;
 }
 
 static void requestStateChanged (wxWebRequestEvent& e) {
+lua_State* L = wxGetApp() .GetLuaState();
 switch(e.GetState()) {
 case wxWebRequest::State_Completed:
 case wxWebRequest::State_Failed:
@@ -58,7 +59,7 @@ auto it = reqmap.find(e.GetRequest().GetId());
 if (it!=reqmap.end()) {
 auto response = e.GetResponse();
 int ref = it->second;
-RunEDT([=](){
+RunEDTSync(GetLuaCS(L), [=](){
 lua_State* L = wxGetApp() .GetLuaState();
 lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
 lua_push(L, response);
