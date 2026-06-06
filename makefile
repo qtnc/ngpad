@@ -1,6 +1,12 @@
 EXENAME=NGPad
 DEFINES=$(options) HAVE_W32API_H __WXMSW__ _UNICODE WXUSINGDLL NOPCH
 
+VERSION_MAJOR=$(shell lua -e "print(os.date('%Y')+0)")
+VERSION_MINOR=$(shell lua -e "print(os.date('%m')+0)")
+VERSION_BUILD_MAJOR=$(shell lua -e "print(os.date('%d')+0)")
+VERSION_BUILD_MINOR=$(shell lua -e "print(os.date('%H')+0)")
+VERSION_STRING=$(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_BUILD_MAJOR)
+
 ifeq ($(OS),Windows_NT)
 EXT_EXE=.exe
 EXT_DLL=.dll
@@ -24,8 +30,8 @@ OBJDIR=obj$(NAME_SUFFIX)/
 
 CXX=g++
 WINDRES=windres
-WINDRESFLAGS=-c 65001 $(addprefix -D,$(DEFINES)) -I"$(CPATH)"
-CXXFLAGS=-std=gnu++17 -Wextra $(addprefix -D,$(DEFINES)) -mthreads
+WINDRESFLAGS=-c 65001 $(addprefix -D,$(DEFINES)) -I"$(CPATH)" -DVERSION_MAJOR=$(VERSION_MAJOR) -DVERSION_MINOR=$(VERSION_MINOR) -DVERSION_BUILD_MAJOR=$(VERSION_BUILD_MAJOR) -DVERSION_BUILD_MINOR=$(VERSION_BUILD_MINOR) -DVERSION_STRING=\"$(VERSION_STRING)\"
+CXXFLAGS=-std=gnu++17 -Wextra -mthreads $(addprefix -D,$(DEFINES)) -DVERSION_MAJOR=$(VERSION_MAJOR) -DVERSION_MINOR=$(VERSION_MINOR) -DVERSION_BUILD_MAJOR=$(VERSION_BUILD_MAJOR) -DVERSION_BUILD_MINOR=$(VERSION_BUILD_MINOR) -DVERSION_STRING=\"$(VERSION_STRING)\"
 LDFLAGS=-L. -lpcre2-8 -lpcre2-16 -lwxbase33u$(NAME_SUFFIX) -lwxmsw33u$(NAME_SUFFIX)_core -lwxmsw33u$(NAME_SUFFIX)_aui -lwxbase33u$(NAME_SUFFIX)_xml -lwxbase33u$(NAME_SUFFIX)_net -lwxmsw33u$(NAME_SUFFIX)_webview -lwxmsw33u$(NAME_SUFFIX)_stc -lfmt -lole32 -loleaut32 -loleacc -llua -ltidy -mthreads -mwindows -Wl,--allow-multiple-definition
 
 SRCS=$(wildcard src/common/*.cpp) $(wildcard src/app/*.cpp) $(wildcard src/console/*.cpp) $(wildcard src/text/*.cpp) $(wildcard src/lua/binding/*.cpp) $(wildcard src/lua/app/*.cpp)
