@@ -27,8 +27,20 @@ const inline T& GetValue () const { return value; }
 inline void SetValue (const T& x) { value=x; }
 };
 
+template<class T>
+class ObjectWxObject: public wxObject {
+public:
+T value;
+
+ObjectWxObject (): value() {}
+ObjectWxObject (const T& x): value(x) {}
+inline T& GetValue () { return value; }
+const inline T& GetValue () const { return value; }
+inline void SetValue (const T& x) { value=x; }
+};
 
 typedef ObjectClientData<wxString> StringClientData;
 typedef ObjectTreeItemData<wxString> StringTreeItemData;
+typedef ObjectWxObject<wxString> StringWxObject;
 
 #endif
