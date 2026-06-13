@@ -12,32 +12,12 @@ LuaRegisterTypeAlias(wxToolBarBase, wxToolBar);
 struct LuaEventHandler* BindLuaHandler (lua_State* L, int idx, wxEvtHandler& obj, wxEventType type, int id1, int id2);
 wxWindow* GetCurDocWindow ();
 
-static wxMenuItem* MenuItemConstructor (wxMenu* parent, int id, const wxString& label, const wxString& help, wxItemKind kind, wxMenu* submenu) {
-return new wxMenuItem(parent, id, label, help, kind, submenu);
-}
-
 static int ToolBind (lua_State* L) {
 auto& item = *lua_get<wxToolBarToolBase*>(L, 1);
 auto& app = wxGetApp();
 auto eptr = BindLuaHandler(L, 2, *item.GetToolBar(), wxEVT_TOOL, item.GetId(), wxID_ANY);
 lua_pushlightuserdata(L, eptr);
 return 1;
-}
-
-static bool MenuBarEnable (wxMenuBar& mb, std::optional<bool> opt) {
-return mb.Enable(opt.value_or(true));
-}
-
-static void MenuBarCheck (wxMenuBar& mb, int id, std::optional<bool> check) {
-mb.Check(id, check.value_or(true));
-}
-
-static void MenuEnable (wxMenu& m, int id, std::optional<bool> opt) {
-m.Enable(id, opt.value_or(true));
-}
-
-static void MenuCheck (wxMenu& m, int id, std::optional<bool> check) {
-m.Check(id, check.value_or(true));
 }
 
 static wxString ToolGetName (wxToolBarToolBase& tool) {
@@ -112,17 +92,32 @@ static wxToolBar* ToolGetToolBar (wxToolBarToolBase& tool) {
 return static_cast<wxToolBar*>(tool.GetToolBar());
 }
 
-static bool ToolBarIsEnabled (wxToolBar& tb, int i) {
-auto it = ToolBarGetTool(tb, i);
+static bool ToolBarIsChecked  (wxToolBar& tb, std::variant<int, wxString> value) {
+auto it = ToolBarGetTool(tb, value);
+return it && it->IsToggled();
+}
+
+static bool ToolBarIsEnabled (wxToolBar& tb, std::variant<int, wxString> value) {
+auto it = ToolBarGetTool(tb, value);
 return it && it->IsEnabled();
 }
 
 static void ToolCheck (wxToolBarToolBase& item, std::optional<bool> check) {
-item.Toggle(check.value_or(true));
+ToolGetToolBar(item) ->ToggleTool(item.GetId(), check.value_or(true));
+}
+
+static void ToolBarCheck (wxToolBar& tb, std::variant<int, wxString> value, std::optional<bool> check) {
+auto item = ToolBarGetTool(tb, value);
+if (item) ToolCheck(*item, check);
 }
 
 static void ToolEnable (wxToolBarToolBase& item, std::optional<bool> enable) {
-item.Enable(enable.value_or(true));
+ToolGetToolBar(item) ->EnableTool(item.GetId(), enable.value_or(true));
+}
+
+static void ToolBarEnable (wxToolBar& tb, std::variant<int, wxString> value, std::optional<bool> enable) {
+auto item = ToolBarGetTool(tb, value);
+if (item) ToolEnable(*item, enable);
 }
 
 export int luaopen_Tool (lua_State* L) {
@@ -165,6 +160,8 @@ Binding::LuaClass<wxToolBarToolBase>(L, "Tool")
 //P handler: function: nil: the event handler to bind to this item
 //R handler: an object allowing to unbind the event handler later on
 .method("bind", SYNC(&ToolBind))
+//A string: internal name of this tool
+.property("name", SYNC(&ToolGetName), SYNC(&ToolSetName))
 .pop();
 
 lua_pop(L, 1);
@@ -184,22 +181,22 @@ Binding::LuaClass<wxToolBar>(L, "ToolBar")
 //M Remove a menu from this tool bar
 //P index: integer: nil: ID or 1-based index of the tool to remove
 .method("remove", SYNC(&ToolBarDeleteTool))
-//M Check or uncheck a menu item by its ID
-//P id: integer: nil: menu item ID
+//M Check or uncheck a tool by its ID
+//P id: integer: nil: tool ID
 //P checked: boolean: true: state checked or unchecked to apply
-//.method("check", SYNC(&MenuBarCheck))
+.method("check", SYNC(&ToolBarCheck))
 //M Checks the checked state of a menu item by its ID
 //P id: integer: nil: ID of the menu item
 //R boolean: checked state
-//.method("isChecked", SYNC(&wxMenuBar::IsChecked))
-//M Enable or disable a menu item by its ID
-//P id: integer: nil: menu item ID
+.method("isChecked", SYNC(&ToolBarIsChecked))
+//M Enable or disable a tool by its ID
+//P id: integer: nil: item ID
 //P enable: boolean: true: enabled or disabled state to apply
-//.method("enable", SYNC(&MenuBarEnable))
-//M Checks if a menu item is enabled or disabled by its ID
-//P id: integer: nil: menu item ID
+.method("enable", SYNC(&ToolBarEnable))
+//M Checks if a tool is enabled or disabled by its ID
+//P id: integer: nil: item ID
 //R boolean: enabled or disabled state
-//.method("isEnabled", SYNC(&MenuBarIsEnabled))
+.method("isEnabled", SYNC(&ToolBarIsEnabled))
 //M fetch a tool from this tool bar
 //P indexOrID: integer: nil: ID or 1-based index of the tool to fetch
 //R Tool: the requested tool 
@@ -236,8 +233,6 @@ Binding::LuaClass<wxToolBar>(L, "ToolBar")
 //P position: integer: 0: position of the item in the tool bar (1-based)
 //R Tool: item created and added in this tool bar
 .method("addStretchableSeparator", SYNC(&ToolBarAddStretchableSeparator))
-//A string: internal name of this menu
-//.property("name", SYNC(&MenuGetName), SYNC(&MenuSetName))
 .pop();
 
 lua_pop(L, 1);
