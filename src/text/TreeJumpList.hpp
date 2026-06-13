@@ -8,7 +8,11 @@ public:
 TreeJumpList (wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxDefaultSize, long style = wxTR_HIDE_ROOT | wxTR_HAS_BUTTONS | wxTR_SINGLE);
 
 protected:
-virtual void OnItemActivate (wxTreeEvent& e);
+virtual bool OnItemActivate (wxTreeItemId item);
+virtual void OnItemActivate (wxTreeEvent& e) { OnItemActivate(e.GetItem()); }
+
+public:
+virtual bool ActivateCurrentItem () { return OnItemActivate(GetSelection()); }
 };
 
 #endif

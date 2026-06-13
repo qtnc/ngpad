@@ -7,14 +7,22 @@
 class TreeJumpListDialog: public wxDialog {
 private:
 TreeJumpList* tree;
+wxTextCtrl* filter;
+wxString rootDir;
+std::unique_ptr<wxTimer> timer;
 
 public:
-TreeJumpListDialog (wxWindow* parent, const wxString& title, const wxString& message);
-inline TreeJumpList* GetTreeJumpList () { return tree; }
+TreeJumpListDialog (wxWindow* parent, const wxString& title, const wxString& rootDir);
+void SetRootDir (const wxString& rd);
 
 protected:
-//void OnItemActivate (wxTreeEvent& e);
-//void OnItemCheck (wxTreeEvent& e);
+void UpdateFileTree ();
+void OnTimerNotify (wxTimerEvent& e) { UpdateFileTree();  }
+void OnFilterTextInput (wxCommandEvent& e);
+void OnActivate ();
+void OnActivate (wxCommandEvent& e) { OnActivate(); }
+void OnCancel ();
+void OnCancel (wxCommandEvent& e) { OnCancel(); }
 };
 
 void AddFileTree (TreeJumpList* tree, const wxString& sRootDir, const wxString& glob);

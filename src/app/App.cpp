@@ -448,8 +448,9 @@ auto doc = GetCurrentDocument();
 if (!doc) return;
 wxString rootDir = doc->GetWorkspaceRoot();
 if (rootDir.empty()) return;
-auto tjld = new TreeJumpListDialog(doc->GetDocumentWindow(), MSG("WorkspaceFileTree"), MSG("WorkspaceFileTree"));
-AddFileTree(tjld->GetTreeJumpList(), rootDir, "*.*");
+static TreeJumpListDialog* tjld = nullptr;
+if (!tjld) tjld = new TreeJumpListDialog(doc->GetDocumentWindow(), MSG("WorkspaceFileTree"), rootDir);
+else tjld->SetRootDir(rootDir);
 tjld->Show();
 }
 
@@ -745,7 +746,7 @@ menubar->Append(edit, wxGetStockLabel(wxID_EDIT));
 auto tools = new wxMenu();
 tools->Append(IDM_MULTIFIND, MSG("Multifind") + "...\tCtrl+Shift+F");
 tools->Append(IDM_MULTIREPLACE, MSG("Multireplace") + "...\tCtrl+Shift+H");
-tools->Append(IDM_FILE_TREE, MSG("WorkspaceFileTree") + "...");
+tools->Append(IDM_FILE_TREE, MSG("WorkspaceFileTree") + "...\tCtrl+P");
 tools->Append(IDM_EXEC_COMMAND, MSG("ExecCommand") + "...\tF10");
 tools->Append(IDM_LUA_CONSOLE, MSG("LuaConsoleMI") + "\tF12");
 tools->SetClientObject(new StringClientData("tools"));

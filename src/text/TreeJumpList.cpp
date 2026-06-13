@@ -7,10 +7,10 @@ wxTreeCtrl(parent, id, pos, size, style)
 Bind(wxEVT_TREE_ITEM_ACTIVATED, &TreeJumpList::OnItemActivate, this);
 }
 
-void TreeJumpList::OnItemActivate (wxTreeEvent& e) {
-auto item = e.GetItem();
+bool TreeJumpList::OnItemActivate (wxTreeItemId item) {
 auto data = GetItemData(item);
-if (!data) return;
+if (!data) return false;
 const wxString& cmd = static_cast<StringTreeItemData*>(data) ->GetValue();
 wxGetApp() .DoQuickJump(cmd);
+return true;
 }
