@@ -1,6 +1,7 @@
 #include "TreeJumpListDialog.hpp"
 #include "../common/println.hpp"
 #include "../app/App.hpp"
+#include "../common/stringUtils.hpp"
 #include <wx/filename.h>
 #include <wx/dir.h>
 
@@ -12,7 +13,7 @@ wxDialog(parent, wxID_ANY, title, wxDefaultPosition, wxDefaultSize, wxDEFAULT_DI
 tree(nullptr), rootDir(rootDir1)
 {
 timer = std::make_unique<wxTimer>(this, wxID_ANY);
-auto lblFilter = new wxStaticText(this, wxID_ANY, MSG("FileFilter"), wxPoint(-1, -1), wxSize(1, 1));
+auto lblFilter = new wxStaticText(this, wxID_ANY, MSG("TJLDFileFilter"), wxPoint(-1, -1), wxSize(1, 1));
 filter = new wxTextCtrl(this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxHSCROLL | wxTE_PROCESS_ENTER);
 auto lblTree = new wxStaticText(this, wxID_ANY, title, wxPoint(-1, -1), wxSize(1, 1));
 tree = new TreeJumpList(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTR_HAS_BUTTONS | wxTR_HIDE_ROOT);
@@ -67,11 +68,24 @@ glob += '*';
 AddFileTree(tree, rootDir, U(glob));
 }
 
+static bool IsFileExcluded (const wxString& file) {
+static std::vector<std::string> excludes;
+if (excludes.empty()) {
+auto& config = wxGetApp().GetConfig();
+excludes = split(config.get("workspace_file_list_exclude_exts", ""), ",; ", true);
+for (auto& ex: excludes) ex.insert(ex.begin(), '.');
+}
+std::string s = U(file);
+for (auto& ex: excludes) {
+if (iends_with(s, ex)) return true;
+}
+return false;
+}
+
 void AddFileTree (TreeJumpList* tree, const wxString& sRootDir, const wxString& glob) {
 wxArrayString files;
 FindAllFiles(sRootDir, &files, glob, wxDIR_FILES | wxDIR_DIRS);
 wxFileName rootDir = wxFileName::DirName(sRootDir);
-
 tree->UnselectAll();
 tree->Freeze();
 auto root = tree->IsEmpty()? tree->AddRoot(wxEmptyString) : tree->GetRootItem();
@@ -79,18 +93,21 @@ tree->DeleteChildren(root);
 
 wxString lastDir;
 wxTreeItemId lastDirItem = root, firstFileItem = root;
+bool firstFileItemSet=false, hideExcluded = wxGetApp().GetConfig() .get("workspace_file_list_hide_excluded", false);
 
 for (auto& file: files) {
+bool excluded = IsFileExcluded(file);
+if (excluded && hideExcluded) continue;
 wxFileName fn(file);
 auto dir = fn.GetPath();
-if (dir!=lastDir || !lastDirItem.IsOk()) {
+if (dir!=lastDir) {
 lastDirItem = MakeFileTreeItem(tree, root, fn.GetDirs(), rootDir.GetDirCount());
 lastDir = dir;
 }
 auto fileItem = tree->AppendItem(lastDirItem, fn.GetFullName(), -1, -1, new StringTreeItemData(file));
-if (firstFileItem!=root) firstFileItem = fileItem;
+if (!firstFileItemSet && !excluded) { firstFileItem = fileItem; firstFileItemSet=true; }
 }
 
 tree->Thaw();
-if (firstFileItem!=root) tree->SelectItem(firstFileItem);
+if (firstFileItemSet) tree->SelectItem(firstFileItem);
 }

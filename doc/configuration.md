@@ -15,6 +15,8 @@ session_mode | never, when_empty, always | never | Tells when files opened at la
 single_instance | boolean | true | Make sure a single instance is running (true) or allow multiple instances running at the same time (false)
 toolbar_style | icon, text, text single line, horizontal, vertical, top, bottom, left, right | horizontal top icon text | Style and alignment of the toolbar
 window_mode | sdi, mdi, notebook, auinotebook | auinotebook | Windowing mode (see below)
+workspace_file_list_exclude_exts | string | | In workspace file list, list of file extensions to exclude. Matching files will never be selected by default after a search.
+workspace_file_list_hide_excluded | boolean | false | In workspace file list, completely hide excluded files (true) or leave them in the tree (false)
 workspace_root_indicators | string | | comma-separated list of file names which, when found, indicates the possible root of a project workspace
 
 ## Appearance

@@ -32,7 +32,7 @@ word_separators | string | native | Characters to use as word separators, affect
 
 ## Editor type
 - raw: very fast in loading big files, but don't allow any formatting
-- rich1: old version of rich text field, slower but allow basic formatting
+- rich1: old version of rich text field, slower but allow basic formatting, not recommended by WXWidgets
 - rich2: rich text field, slower but allows basic formatting
 - stc: scintilla text editor, fast and good formatting, but no advanced keyboard navigation and not 100% accessible to screen readers
 
