@@ -37,7 +37,6 @@ return result;
 }
 
 bool AbstractDocument::OnCloseDocument () {
-wxCriticalSectionLocker lcs1(wxGetApp().GetGlobalSyncCS());
 if (closing) return true;
 closing = true;
 SendEvent(wxEVT_DOC_CLOSING);

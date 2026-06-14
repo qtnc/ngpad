@@ -629,7 +629,7 @@ return false;
 void App::OnAbout () {
 wxAboutDialogInfo info;
 info.SetName(GetAppDisplayName());
-info.SetVersion(U(APP_VERSION_STRING));
+info.SetVersion(U(VERSION_STRING));
 info.SetCopyright(U(APP_COPYRIGHT_INFO));
 info.SetWebSite(APP_WEBSITE_URL);
 wxAboutBox(info);

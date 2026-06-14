@@ -70,7 +70,7 @@ liveAppender2.reset();
 liveAppender1 = std::make_unique<LuaConsoleTextAppender>(this, editor);
 liveSubmitter = std::make_unique<LuaConsoleTextSubmitter>(editor, liveAppender1.get());
 wxString initialText = U(
-APP_DISPLAY_NAME " " APP_VERSION_STRING "\n"
+APP_DISPLAY_NAME " " VERSION_STRING "\n"
 APP_COPYRIGHT_INFO " " APP_VENDOR " (" APP_WEBSITE_URL ")\n"
 ) + LuaGetBanner() + "\n>>>";
 liveAppender1->Append(initialText);
