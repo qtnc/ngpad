@@ -92,6 +92,11 @@ return result;
 
 void LoadPlugins (App& app, Properties& props) {
 std::vector<std::string> pluginList = split(props.get("plugin", ""), ",;\t\r\n", true);
+
+#ifdef DEBUG
+pluginList.push_back("testplugin");
+#endif
+
 for (auto& name: pluginList) {
 trim(name);
 if (name.empty()) continue;
