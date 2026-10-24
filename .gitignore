@@ -12,3 +12,4 @@ tmp*
 *.mo
 *.zip
 config/find-replace-history.ini
+config/agents.json

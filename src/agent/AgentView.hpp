@@ -6,10 +6,16 @@
 class AgentView: public AbstractView {
 private:
 struct AgentEditor* editor = nullptr;
+std::unique_ptr<struct AgentSession> session;
 
 public:
+AgentView ();
+~AgentView ();
 struct AgentEditor* GetEditor () { return editor; }
+struct AgentSession* GetSession () { return session.get(); }
 
+void SetAgent (const struct AgentConfig& config);
+bool IsBusy ();
 void ClearAgent ();
 void Send (const wxString& prompt);
 

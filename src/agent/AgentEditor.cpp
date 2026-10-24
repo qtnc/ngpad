@@ -20,6 +20,7 @@ return view? static_cast<AgentDocument*>(view->GetDocument()) : nullptr;
 }
 
 bool AgentEditor::IsEditableAtInsertionPoint (bool backspace) {
+if (view && view->IsBusy()) return false;
 long ss, se, ip = GetInputInsertionPoint();
 GetSelection(&ss, &se);
 if (backspace) return ss>ip && se>ip && ip>=0;
@@ -37,6 +38,11 @@ else wxBell();
 }
 
 void AgentEditor::OnShiftEnter () {
+if (view && view->IsBusy()) {
+wxBell();
+wxGetApp().SayText(MSG("AgentBusy"));
+return;
+}
 if (!IsEditableAtInsertionPoint()) {
 wxBell();
 return;
@@ -59,6 +65,15 @@ SetInsertionPoint(GetLastPosition());
 WriteText(MSG("AIResponse"));
 WriteText("\n");
 WriteText(a);
+WriteText("\n\n");
+WritePromptInvite();
+}
+
+void AgentEditor::WriteError (const wxString& e) {
+SetInsertionPoint(GetLastPosition());
+WriteText(MSG("AIError"));
+WriteText("\n");
+WriteText(e);
 WriteText("\n\n");
 WritePromptInvite();
 }

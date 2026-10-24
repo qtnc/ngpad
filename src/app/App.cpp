@@ -7,6 +7,7 @@
 #include "../console/ConsoleDocument.hpp"
 #include "../agent/AgentView.hpp"
 #include "../agent/AgentDocument.hpp"
+#include "../agent/AgentConfig.hpp"
 #include "../common/SingleChoiceDialog.hpp"
 #include "../text/FindReplaceDialog.hpp"
 #include "../text/TreeJumpListDialog.hpp"
@@ -425,13 +426,39 @@ UpdateTitle();
 return static_cast<AbstractDocument*>( doc );
 }
 
-AbstractDocument* App::CreateAgent () {
-auto doc = CreateNewEmptyDocument("ai.agent", MSG("AI Agent"));
+AbstractDocument* App::CreateAgent (const AgentConfig& config) {
+wxString name = U(config.name), title = name;
+for (int i=2; ; i++) {
+bool found = false;
+for (auto doc: docManager->GetDocumentsVector()) {
+if (doc->GetTitle()==title) { found=true; break; }
+}
+if (!found) break;
+title = wxString::Format("%s (%d)", name, i);
+}
+auto doc = CreateNewEmptyDocument("ai.agent", title);
+auto view = doc? dynamic_cast<AgentView*>(doc->GetFirstView()) :nullptr;
+if (view) view->SetAgent(config);
 return doc;
 }
 
 void App::OnOpenAgentDialog () {
-CreateAgent();
+std::vector<AgentConfig> configs;
+wxString error;
+if (!AgentConfig::LoadAll(configs, error)) {
+wxMessageBox(error, MSG("Error"), wxICON_ERROR | wxOK, GetTopWindow());
+return;
+}
+int selection = 0;
+if (configs.size()>1) {
+wxArrayString names;
+for (auto& c: configs) names.push_back(U(c.name));
+SingleChoiceDialog dlg(GetTopWindow(), MSG("ChooseAgentTitle"), MSG("ChooseAgent"), names);
+if (wxID_OK!=dlg.ShowModal()) return;
+selection = dlg.GetSelection();
+if (selection<0) return;
+}
+CreateAgent(configs[selection]);
 }
 
 AbstractDocument* App::CreateLuaConsole () {

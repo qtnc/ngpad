@@ -19,6 +19,7 @@ int GetInputInsertionPoint () { return inputInsertionPoint; }
 void SetInputInsertionPoint (int i) { inputInsertionPoint=i; }
 void WritePromptInvite ();
 void WriteAnswer (const wxString& answer);
+void WriteError (const wxString& error);
 
 void OnChar  (wxKeyEvent& e);
 void OnCharHook (wxKeyEvent& e);

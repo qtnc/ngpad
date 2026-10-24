@@ -1,14 +1,40 @@
 #include "AgentView.hpp"
 #include "AgentDocument.hpp"
 #include "AgentEditor.hpp"
+#include "AgentSession.hpp"
 #include "../app/App.hpp"
 #include "../common/println.hpp"
 
 wxIMPLEMENT_DYNAMIC_CLASS(AgentView, wxView);
 
+AgentView::AgentView () {}
+
+AgentView::~AgentView () {}
+
+void AgentView::SetAgent (const AgentConfig& config) {
+session = std::make_unique<AgentSession>(config);
+}
+
+bool AgentView::IsBusy () {
+return session && session->IsBusy();
+}
+
 void AgentView::Send (const wxString& prompt) {
-//todo: make the real request
-editor->WriteAnswer("It works !");
+if (!session) return;
+auto& app = wxGetApp();
+wxString name = U(session->GetConfig().name);
+bool sent = session->Send(prompt, [this, name](bool success, const wxString& text){
+auto& app = wxGetApp();
+if (success) {
+editor->WriteAnswer(text);
+app.SayText(U(format(GetTranslation("AgentAnswerReceived"), U(name))));
+}
+else {
+editor->WriteError(text);
+app.SayText(U(format(GetTranslation("AgentErrorReceived"), U(name))));
+}});
+if (sent) app.SayText(MSG("AgentThinking"));
+else editor->WriteError(MSG("AgentSendFailed"));
 }
 
 bool AgentView::OnCreate (wxDocument* wxdoc, long flags) {
@@ -38,6 +64,7 @@ menubar->Enable(wxID_REPLACE, false);
 }
 
 void AgentView::ClearAgent () {
+if (session) session->Clear();
 if (editor) {
 editor->Clear();
 editor->WritePromptInvite();

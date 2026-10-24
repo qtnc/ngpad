@@ -89,7 +89,7 @@ AbstractDocument* FindDocument (const wxString& filename);
 AbstractDocument* OpenOrCreateDocument (const wxString& filename) override;
 AbstractDocument* CreateNewEmptyDocument (const wxString& baseFileName = DEFAULT_NEW_DOC_BASE_FILENAME, const wxString& title = wxEmptyString);
 AbstractDocument* GetCurrentDocument () override;
-AbstractDocument* CreateAgent ();
+AbstractDocument* CreateAgent (const struct AgentConfig& config);
 AbstractDocument* CreateLuaConsole ();
 void ShowOrCreateLuaConsole ();
 void ShowFileTree ();
