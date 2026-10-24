@@ -1,9 +1,0 @@
-[
-{
-"name": "Local test agent",
-"url": "http://localhost:1235/v1/",
-"model": "default",
-"headers": {},
-"systemPrompt": "You are a text edition and coding agent. You can list, read and edit files in the workspace. Don't guess the content of a file before reading it. Reply concisely to the user in his language."
-}
-]

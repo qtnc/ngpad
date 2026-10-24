@@ -11,6 +11,7 @@ public:
 struct AgentEditor* GetEditor () { return editor; }
 
 void ClearAgent ();
+void Send (const wxString& prompt);
 
 bool OnCreate (wxDocument* doc, long flags) override;
 void OnUpdate (wxView* sender, wxObject* param) override;

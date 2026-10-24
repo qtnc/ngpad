@@ -7,6 +7,7 @@
 class AgentEditor: public wxTextCtrl {
 private:
 struct AgentView* view;
+int inputInsertionPoint;
 
 public:
 AgentEditor (AgentView* view, wxWindow* parent, int id, const wxString& text, const wxPoint& pos, const wxSize& size, long flags);
@@ -14,6 +15,10 @@ AgentEditor (AgentView* view, wxWindow* parent, int id, const wxString& text, co
 struct AgentDocument* GetDocument ();
 
 bool IsEditableAtInsertionPoint (bool bs = false);
+int GetInputInsertionPoint () { return inputInsertionPoint; }
+void SetInputInsertionPoint (int i) { inputInsertionPoint=i; }
+void WritePromptInvite ();
+void WriteAnswer (const wxString& answer);
 
 void OnChar  (wxKeyEvent& e);
 void OnCharHook (wxKeyEvent& e);

@@ -6,6 +6,10 @@
 
 wxIMPLEMENT_DYNAMIC_CLASS(AgentView, wxView);
 
+void AgentView::Send (const wxString& prompt) {
+//todo: make the real request
+editor->WriteAnswer("It works !");
+}
 
 bool AgentView::OnCreate (wxDocument* wxdoc, long flags) {
 if (!AbstractView::OnCreate(wxdoc, flags)) return false;
@@ -18,6 +22,7 @@ editor = new AgentEditor(this, childWindow, wxID_ANY, wxEmptyString, wxDefaultPo
 sizer->Add(editor, 1, wxEXPAND);
 childWindow->SetSizerAndFit(sizer);
 editor->SetFocus();
+ClearAgent();
 return true;
 }
 
@@ -33,9 +38,10 @@ menubar->Enable(wxID_REPLACE, false);
 }
 
 void AgentView::ClearAgent () {
-//if (liveAppender1) liveAppender1->GetInsertionPoint() = 0;
-if (editor) editor->Clear();
-}
+if (editor) {
+editor->Clear();
+editor->WritePromptInvite();
+}}
 
 bool AgentView::OnMenuAction (wxCommandEvent& e) {
 if (AbstractView::OnMenuAction(e)) return true;

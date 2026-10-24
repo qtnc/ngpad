@@ -20,7 +20,7 @@ return view? static_cast<AgentDocument*>(view->GetDocument()) : nullptr;
 }
 
 bool AgentEditor::IsEditableAtInsertionPoint (bool backspace) {
-long ss, se, ip = 0; //view->GetExecutingCommandInsertionPoint();
+long ss, se, ip = GetInputInsertionPoint();
 GetSelection(&ss, &se);
 if (backspace) return ss>ip && se>ip && ip>=0;
 else  return ss>=ip && se>=ip && ip>=0;
@@ -42,15 +42,33 @@ wxBell();
 return;
 }
 int last = GetLastPosition();
-int ip = 0; //view && view->liveAppender1? view->liveAppender1->GetInsertionPoint() : last;
+int ip = GetInputInsertionPoint();
 SetInsertionPoint(last);
 if (last==ip) {
 wxBell();
 return;
 }
-WriteText("\n");
-//todo: send request
+wxString prompt = GetRange(ip, last);
+WriteText("\n\n");
+SetInputInsertionPoint(GetInsertionPoint());
+view->Send(prompt);
  }
+
+void AgentEditor::WriteAnswer (const wxString& a) {
+SetInsertionPoint(GetLastPosition());
+WriteText(MSG("AIResponse"));
+WriteText("\n");
+WriteText(a);
+WriteText("\n\n");
+WritePromptInvite();
+}
+
+void AgentEditor::WritePromptInvite () {
+SetInsertionPoint(GetLastPosition());
+WriteText(MSG("PromptInvite"));
+WriteText("\n");
+SetInputInsertionPoint(GetLastPosition());
+}
 
 void AgentEditor::OnCtrlEnter () {
 size_t x, y;
