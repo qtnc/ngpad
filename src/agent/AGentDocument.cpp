@@ -32,11 +32,6 @@ UpdateAllViews();
 return true;
 }
 
-/*void AgentDocument::ClearAgent () {
-auto view = static_cast<AgentView*>(GetFirstView());
-view->ClearAgent();
-}*/
-
 /*bool AgentDocument::ExecuteCommand (const wxString& cmd) {
 auto view = static_cast<AgentView*>(GetFirstView());
 return view->ExecuteCommand(cmd);
@@ -53,7 +48,6 @@ bool AgentDocument::OnMenuAction (wxCommandEvent& e) {
 if (AbstractDocument::OnMenuAction(e)) return true;
 size_t id = e.GetId();
 switch(id){
-//case IDM_CLEAR_Agent: ClearAgent(); break;
 default: return false;
 }
 return true;
@@ -64,7 +58,10 @@ void AgentDocument::AddSpecificTools (wxToolBar* toolbar) {
 
 void AgentDocument::AddSpecificMenus (wxMenuBar* menubar) {
 wxMenu* edit = menubar->GetMenu(1);
-//edit->Append(IDM_CLEAR_Agent, MSG("ClearAgent") + "\tCtrl+Shift+L");
+edit->AppendSeparator();
+edit->Append(IDM_AGENT_CLEAR, MSG("AgentClear") + "\tCtrl+Shift+L");
+edit->Append(IDM_AGENT_MODEL, MSG("AgentChooseModel") + "...\tCtrl+M");
+edit->Append(IDM_AGENT_CANCEL, MSG("AgentCancel") + "\tEsc");
 }
 
 

@@ -2,11 +2,13 @@
 #define _____AGENT_VIEW_HPP
 #include "../app/AbstractView.hpp"
 #include<memory>
+#include<vector>
 
 class AgentView: public AbstractView {
 private:
 struct AgentEditor* editor = nullptr;
 std::unique_ptr<struct AgentSession> session;
+std::vector<long> exchangeStarts;
 
 public:
 AgentView ();
@@ -18,6 +20,13 @@ void SetAgent (const struct AgentConfig& config);
 bool IsBusy ();
 void ClearAgent ();
 void Send (const wxString& prompt);
+void SendPrompt (const wxString& prompt);
+void ExecuteCommand (const wxString& name, const wxString& arg);
+void ChangeModel (const wxString& name);
+void ShowModelList ();
+void ShowModelDialog ();
+void CancelRequest ();
+void UndoLastExchange (bool retry);
 
 bool OnCreate (wxDocument* doc, long flags) override;
 void OnUpdate (wxView* sender, wxObject* param) override;

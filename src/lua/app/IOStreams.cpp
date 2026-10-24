@@ -4,7 +4,7 @@
 #include <wx/wfstream.h>
 #include <wx/mstream.h>
 #include<wx/process.h>
-#include "MemoryInputStreamWithBuffer.hpp"
+#include "../../common/MemoryInputStreamWithBuffer.hpp"
 #include "../../common/println.hpp"
 
 LuaRegisterReferenceType(wxInputStream);

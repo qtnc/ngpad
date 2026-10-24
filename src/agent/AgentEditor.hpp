@@ -3,11 +3,18 @@
 #include "../common/wxUtils.hpp"
 #include "wx/docview.h"
 #include<memory>
+#include<vector>
 
 class AgentEditor: public wxTextCtrl {
 private:
+struct MessageMark { long headerStart, contentStart; };
+
 struct AgentView* view;
 int inputInsertionPoint;
+std::vector<MessageMark> messageMarks;
+
+void WriteHeader (const wxString& header);
+long GetMessageContentEnd (size_t index);
 
 public:
 AgentEditor (AgentView* view, wxWindow* parent, int id, const wxString& text, const wxPoint& pos, const wxSize& size, long flags);
@@ -20,6 +27,12 @@ void SetInputInsertionPoint (int i) { inputInsertionPoint=i; }
 void WritePromptInvite ();
 void WriteAnswer (const wxString& answer);
 void WriteError (const wxString& error);
+void WriteInfo (const wxString& info);
+void Reset ();
+long GetCurrentMessageStart ();
+void TruncateFrom (long pos);
+bool MoveToPreviousMessage (bool select);
+bool MoveToNextMessage (bool select);
 
 void OnChar  (wxKeyEvent& e);
 void OnCharHook (wxKeyEvent& e);

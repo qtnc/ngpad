@@ -60,29 +60,93 @@ SetInputInsertionPoint(GetInsertionPoint());
 view->Send(prompt);
  }
 
-void AgentEditor::WriteAnswer (const wxString& a) {
+void AgentEditor::WriteHeader (const wxString& header) {
 SetInsertionPoint(GetLastPosition());
-WriteText(MSG("AIResponse"));
+long headerStart = GetLastPosition();
+WriteText(header);
 WriteText("\n");
+messageMarks.push_back({ headerStart, GetLastPosition() });
+}
+
+void AgentEditor::WriteAnswer (const wxString& a) {
+WriteHeader(MSG("AIResponse"));
 WriteText(a);
 WriteText("\n\n");
 WritePromptInvite();
 }
 
 void AgentEditor::WriteError (const wxString& e) {
-SetInsertionPoint(GetLastPosition());
-WriteText(MSG("AIError"));
-WriteText("\n");
+WriteHeader(MSG("AIError"));
 WriteText(e);
 WriteText("\n\n");
 WritePromptInvite();
 }
 
-void AgentEditor::WritePromptInvite () {
+void AgentEditor::WriteInfo (const wxString& info) {
 SetInsertionPoint(GetLastPosition());
-WriteText(MSG("PromptInvite"));
-WriteText("\n");
+WriteText(info);
+WriteText("\n\n");
+WritePromptInvite();
+}
+
+void AgentEditor::WritePromptInvite () {
+WriteHeader(MSG("PromptInvite"));
 SetInputInsertionPoint(GetLastPosition());
+}
+
+void AgentEditor::Reset () {
+Clear();
+messageMarks.clear();
+WritePromptInvite();
+}
+
+long AgentEditor::GetCurrentMessageStart () {
+return messageMarks.empty()? 0 : messageMarks.back().headerStart;
+}
+
+void AgentEditor::TruncateFrom (long pos) {
+Remove(pos, GetLastPosition());
+while (!messageMarks.empty() && messageMarks.back().headerStart>=pos) messageMarks.pop_back();
+WritePromptInvite();
+}
+
+long AgentEditor::GetMessageContentEnd (size_t index) {
+if (index+1>=messageMarks.size()) return GetLastPosition();
+long start = messageMarks[index].contentStart, end = messageMarks[index+1].headerStart;
+while (end>start) {
+wxString c = GetRange(end -1, end);
+if (c!="\n" && c!="\r") break;
+end--;
+}
+return end;
+}
+
+bool AgentEditor::MoveToPreviousMessage (bool select) {
+long start, end;
+GetSelection(&start, &end);
+for (size_t i=messageMarks.size(); i-->0; ) {
+long pos = messageMarks[i].contentStart;
+if (pos>=start) continue;
+if (select) SetSelection(pos, end);
+else SetInsertionPoint(pos);
+ShowPosition(pos);
+return true;
+}
+return false;
+}
+
+bool AgentEditor::MoveToNextMessage (bool select) {
+long start, end;
+GetSelection(&start, &end);
+for (size_t i=0, n=messageMarks.size(); i<n; i++) {
+long pos = select? GetMessageContentEnd(i) : messageMarks[i].contentStart;
+if (pos<=end) continue;
+if (select) SetSelection(start, pos);
+else SetInsertionPoint(pos);
+ShowPosition(pos);
+return true;
+}
+return false;
 }
 
 void AgentEditor::OnCtrlEnter () {
@@ -129,6 +193,16 @@ else e.Skip();
 void AgentEditor::OnCharHook (wxKeyEvent& e) {
 int key = e.GetKeyCode(), mod = e.GetModifiers();
 switch(key){
+case WXK_UP:
+if (mod==wxMOD_CONTROL) BellIfFalse(MoveToPreviousMessage(false));
+else if (mod==(wxMOD_CONTROL | wxMOD_SHIFT)) BellIfFalse(MoveToPreviousMessage(true));
+else e.Skip();
+break;
+case WXK_DOWN:
+if (mod==wxMOD_CONTROL) BellIfFalse(MoveToNextMessage(false));
+else if (mod==(wxMOD_CONTROL | wxMOD_SHIFT)) BellIfFalse(MoveToNextMessage(true));
+else e.Skip();
+break;
 case WXK_RETURN:
 if (mod==wxMOD_SHIFT) OnShiftEnter();
 else if (mod==wxMOD_CONTROL) OnCtrlEnter();
