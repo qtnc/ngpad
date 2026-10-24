@@ -5,6 +5,8 @@
 #include "../text/TextDocument.hpp"
 #include "../console/ConsoleView.hpp"
 #include "../console/ConsoleDocument.hpp"
+#include "../agent/AgentView.hpp"
+#include "../agent/AgentDocument.hpp"
 #include "../common/SingleChoiceDialog.hpp"
 #include "../text/FindReplaceDialog.hpp"
 #include "../text/TreeJumpListDialog.hpp"
@@ -241,6 +243,7 @@ OnExceptionInMainLoop();
 bool App::initDocManager () {
 docManager = new wxDocManager();
 auto consoleTpl = new wxDocTemplate(docManager, "Console", "*.console", wxEmptyString, "console", "consoleDoc", "consoleView", wxCLASSINFO(ConsoleDocument), wxCLASSINFO(ConsoleView), wxTEMPLATE_INVISIBLE);
+auto agentTpl = new wxDocTemplate(docManager, "Agent", "*.agent", wxEmptyString, "agent", "agentDoc", "agentView", wxCLASSINFO(AgentDocument), wxCLASSINFO(AgentView), wxTEMPLATE_INVISIBLE);
 auto textTpl = new wxDocTemplate(docManager, "Text files", "*.*", wxEmptyString, "txt", "textDoc", "textView", wxCLASSINFO(TextDocument), wxCLASSINFO(TextView), wxTEMPLATE_VISIBLE);
 
 wxFileConfig fileConfig(GetAppName());
@@ -403,6 +406,7 @@ case IDM_MULTIREPLACE: OnMultiFindReplace(true); break;
 case IDM_EXEC_COMMAND: OnExecCommandDialog(); break;
 case IDM_LUA_CONSOLE: ShowOrCreateLuaConsole(); break;
 case IDM_FILE_TREE: ShowFileTree(); break;
+case IDM_OPEN_AGENT: OnOpenAgentDialog(); break;
 default:  
 auto view = static_cast<AbstractView*>(docManager->GetCurrentView());
 auto doc = static_cast<AbstractDocument*>(docManager->GetCurrentDocument());
@@ -419,6 +423,15 @@ if (!title.empty()) doc->SetTitle(title);
 doc->SetDocumentSaved(false);
 UpdateTitle();
 return static_cast<AbstractDocument*>( doc );
+}
+
+AbstractDocument* App::CreateAgent () {
+auto doc = CreateNewEmptyDocument("ai.agent", MSG("AI Agent"));
+return doc;
+}
+
+void App::OnOpenAgentDialog () {
+CreateAgent();
 }
 
 AbstractDocument* App::CreateLuaConsole () {
@@ -748,6 +761,7 @@ tools->Append(IDM_MULTIFIND, MSG("Multifind") + "...\tCtrl+Shift+F");
 tools->Append(IDM_MULTIREPLACE, MSG("Multireplace") + "...\tCtrl+Shift+H");
 tools->Append(IDM_FILE_TREE, MSG("WorkspaceFileTree") + "...\tCtrl+P");
 tools->Append(IDM_EXEC_COMMAND, MSG("ExecCommand") + "...\tF10");
+tools->Append(IDM_OPEN_AGENT, MSG("OpenAgent") + "...\tF11");
 tools->Append(IDM_LUA_CONSOLE, MSG("LuaConsoleMI") + "\tF12");
 tools->SetClientObject(new StringClientData("tools"));
 menubar->Append(tools, MSG("ToolsMenu"));
