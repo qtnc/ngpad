@@ -2,7 +2,7 @@
 #include "base.hpp"
 #include <wx/webrequest.h>
 #include "../../app/App.hpp"
-#include "MemoryInputStreamWithBuffer.hpp"
+#include "../../app/WebRequester.hpp"
 #include "../../common/println.hpp"
 
 LuaRegisterReferenceType(wxInputStream);
@@ -10,8 +10,6 @@ LuaRegisterReferenceType(wxOutputStream);
 LuaRegisterValueType(wxWebRequest);
 LuaRegisterValueType(wxWebResponse);
 LuaRegisterTypeAlias(wxWebRequestBase, wxWebRequest);
-
-std::unordered_map<int, int> reqmap;
 
 void wrSetData (wxWebRequest& request, std::variant<std::string, wxInputStream*> input, const wxString& contentType, wxFileOffset size) {
 struct Visitor {
@@ -24,61 +22,32 @@ if (!in || in->IsOk()) return;
 request.SetData(in, contentType, size);
 }
 void operator() (const std::string& s) {
-if (s.empty()) return;
-size = s.size();
-auto ns = new std::string(s);
-wxInputStream* in = new MemoryInputStreamWithBuffer(ns);
-operator()(in);
+WebRequester::Get() .SetBody(request, contentType, s);
 }
 };
 std::visit(Visitor(request, contentType, size), input);
 }
 
 wxWebRequest wrCreate (const wxString& url, const wxString& method, std::variant<std::string, wxInputStream*> data, const wxString& contentType, wxFileOffset size) {
-static int id = 0;
-wxWebRequest request = wxWebSession::GetDefault().CreateRequest( &wxGetApp(), url, ++id);
+wxWebRequest request = WebRequester::Get() .Create(url, method);
 if (!contentType.empty()) wrSetData(request, data, contentType, size);
-if (!method.empty()) request.SetMethod(method);
 return request;
 }
 
 static int wrStart (lua_State* L) {
 auto& request = lua_get<wxWebRequest&>(L, 1);
-reqmap[request.GetId()] = luaL_ref(L, LUA_REGISTRYINDEX);
-request.Start();
+luaL_checktype(L, -1, LUA_TFUNCTION);
+int ref = luaL_ref(L, LUA_REGISTRYINDEX);
+WebRequester::Get() .Send(request, [=](const wxWebRequestEvent& e){
+lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
+lua_push(L, e.GetResponse());
+if (LUA_OK != luaL_call(L, 1, 1)) throw std::runtime_error(lua_tostring(L, -1));
+luaL_unref(L, LUA_REGISTRYINDEX, ref);
+}, &GetLuaCS(L));
 return 0;
 }
 
-static void requestStateChanged (wxWebRequestEvent& e) {
-lua_State* L = wxGetApp() .GetLuaState();
-switch(e.GetState()) {
-case wxWebRequest::State_Completed:
-case wxWebRequest::State_Failed:
-case wxWebRequest::State_Cancelled:
-auto it = reqmap.find(e.GetRequest().GetId());
-if (it!=reqmap.end()) {
-auto response = e.GetResponse();
-int ref = it->second;
-RunEDTSync(GetLuaCS(L), [=](){
-lua_State* L = wxGetApp() .GetLuaState();
-lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
-lua_push(L, response);
-if (LUA_OK != luaL_call(L, 1, 1)) throw std::runtime_error(lua_tostring(L, -1));
-luaL_unref(L, LUA_REGISTRYINDEX, ref);
-});
-reqmap.erase(it);
-}
-break;
-}}
-
-
 export int luaopen_WebRequest (lua_State* L) {
-static bool registered = false;
-if (!registered) {
-registered = true;
-wxGetApp() .Bind(wxEVT_WEBREQUEST_STATE, &requestStateChanged);
-}
-
 lua_pushglobaltable(L);
 //T Object containing a response to a web request
 Binding::LuaClass<wxWebResponse>(L, "WebResponse")
