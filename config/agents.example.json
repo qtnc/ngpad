@@ -7,6 +7,9 @@
 "headers": {},
 "systemPrompt": "You are a text edition and coding agent. You can list, read and edit files in the workspace. Don't guess the content of a file before reading it. Reply concisely to the user in his language.",
 "temperature": 0.2,
-"timeout": 600
+"timeout": 600,
+"tools": ["list_files", "read_file", "search_files"],
+"maxToolIterations": 15,
+"limits": { "readMaxLines": 500, "listMaxEntries": 500, "searchMaxResults": 100, "searchMaxLineLength": 200, "maxResultChars": 50000 }
 }
 ]

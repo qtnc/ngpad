@@ -14,7 +14,11 @@ Notes de travail pour l'ajout d'agents IA dans l'éditeur. À relire avant de re
 
 ## Décisions prises
 
-- **Racines accessibles** : ensemble des racines (`GetWorkspaceRoot()`) des documents texte ouverts, **recalculé à chaque appel d'outil**. Permet de travailler sur plusieurs projets à la fois. Contrôle strict des chemins : canonicalisation, refus de tout ce qui sort des racines.
+- **Racine unique par agent** (décision révisée ; l'ancienne idée « ensemble des racines des documents ouverts » est abandonnée car ambiguë, surtout pour l'écriture). Choisie à l'ouverture de l'agent et fixe pour toute sa durée de vie :
+  - racines candidates = racines distinctes (`GetWorkspaceRoot()`) des documents ouverts ayant un nom de fichier ; celle du document actif en premier ;
+  - une seule candidate → utilisée directement ; plusieurs → SingleChoiceDialog ; aucune → sélecteur de répertoire (à confirmer) ;
+  - pour travailler sur deux projets, on ouvre deux agents. Meilleure isolation entre projets.
+  - Le modèle ne voit que des chemins relatifs à la racine, avec `/` comme séparateur. En entrée on accepte aussi `\`, un `/` initial (= racine de l'espace de travail, jamais la racine du disque) et les chemins absolus situés sous la racine. Tout ce qui sort de la racine est refusé (canonicalisation, `..`).
 - **Écritures** : confirmation à **chaque** écriture pour l'instant. Plus tard : option globale ou par agent (`permissions`: `ask` / `auto` / `readonly`).
 - **Fichier déjà ouvert** : lecture ET écriture dans le contenu de l'éditeur (`FindEditor()`, `ReplaceAndPushUndoState`), sans enregistrement automatique. Fichier fermé : lecture / écriture sur disque (`LoadFile` / `SaveFile` + editorconfig). La confirmation indique lequel des deux cas s'applique.
 - **Pas de streaming** : on attend la réponse complète.
@@ -66,6 +70,37 @@ Seuls `name` et `url` sont obligatoires. `tools`, `permissions`, `maxToolIterati
 | `edit_file(path, old, new, replace_all?)` | remplacement exact | `ReplaceAndPushUndoState` |
 | `write_file(path, content)` | créer / écraser | `SaveFile` |
 
+### Fiches détaillées (brouillon à valider)
+
+Règles communes :
+- Chemins relatifs à la racine, séparateur `/`. Répertoires ignorés : liste configurable dans `config.ini` (ex. `agent_ignored_dirs=.git, .svn, .hg, node_modules, obj, objd, __pycache__`). Fichiers binaires ignorés (`search_files`) ou refusés (`read_file`).
+- Masques : `*`, `?`, `**` via `GlobToRegEx` (déjà en place). Chemins normalisés en `/` avant comparaison, sinon un masque contenant `/` ne correspond jamais aux chemins Windows.
+- Un succès ne commence **jamais** par `Error:` ; une erreur commence **toujours** par `Error: ` et indique quoi faire ensuite. Résultat vide = phrase explicite, jamais une chaîne vide.
+- Toutes les limites sont configurables par agent (valeurs par défaut ci-dessous), plus une limite globale de taille appliquée à tout résultat d'outil, y compris aux futurs outils Lua :
+  `"limits": { "readMaxLines": 500, "listMaxEntries": 500, "searchMaxResults": 100, "searchMaxLineLength": 200, "maxResultChars": 50000 }`
+
+**list_files(path?, recursive?)**
+- Description : "List files and directories in the workspace. Directories end with '/'. Paths are relative to the workspace root. Not recursive unless recursive is true or the pattern contains '**'."
+- `path` (string, optionnel, défaut `""` = racine) : répertoire, éventuellement suivi d'un masque : `src/`, `src/*.cpp`, `src/**/*.hpp`.
+- `recursive` (boolean, optionnel, défaut false) ; devient vrai automatiquement si le masque contient `**`.
+- Retour : une entrée par ligne, répertoires d'abord puis fichiers, tri alphabétique insensible à la casse. En mode récursif, seulement les fichiers. Troncature : `[Truncated: N more entries not shown. Use a more specific path or pattern.]`. Vide : `No files match: <path>`.
+
+**read_file(path, start_line?, end_line?)**
+- Description : "Read a text file from the workspace. Returns a header line followed by the requested lines, each prefixed by its line number and a tab. Line numbers are not part of the file content. Long files are truncated: use start_line and end_line to read other parts."
+- `path` (string, obligatoire).
+- `start_line`, `end_line` (integer, optionnels) : numérotés à partir de 1, `end_line` inclus, négatif = depuis la fin (-1 = dernière ligne). Bornes au-delà de la fin ramenées à la fin.
+- Lecture via le contenu de l'éditeur si le fichier est ouvert, sinon `LoadFile` (détection d'encodage). Retour toujours en UTF-8.
+- Retour : `File: src/app/App.cpp (lines 1-500 of 1534)` puis `1\t...`. Troncature : `[Truncated at 500 lines. Use start_line=501 to continue.]`. Fichier vide : `File: <path> (empty)`.
+- Erreurs : introuvable, répertoire, hors racine, binaire, `start_line` au-delà de la fin.
+
+**search_files(pattern, path?, regex?)**
+- Description : "Search for text in workspace files, case-insensitively. The search is always recursive. Returns one line per match in the form path:line: text."
+- `pattern` (string, obligatoire).
+- `path` (string, optionnel, défaut `""`) : même syntaxe que `list_files`.
+- `regex` (boolean, optionnel, défaut false) : expression régulière PCRE.
+- Réutilise `FindReplaceInfo::FindAllMultiple` (contenu de l'éditeur pour les fichiers ouverts), avec `FRI_ICASE`.
+- Retour : `src/app/App.cpp:92: texte`, lignes coupées à `searchMaxLineLength` avec `…`. Ligne finale `[42 matches in 7 files]`. Troncature : `[N more matches not shown. Use a more specific path or pattern.]`. Vide : `No matches for '<pattern>' in <path>`.
+
 Plus tard : remplacement multifichier (`ReplaceAllMultiple`, avec confirmation), `get_editor_context` (fichier actif, ligne, sélection), `open_in_editor(path, line)`, déplacer / supprimer (confirmation), exécuter une commande (beaucoup plus tard).
 
 ## Commandes et menus prévus (étape 2)
@@ -77,7 +112,9 @@ Menus : effacer (Ctrl+Shift+L), changer de modèle, annuler (Échap), copier la 
 
 - `AgentConfig` : lecture de `config/agents.json`.
 - `AgentSession` : historique (JSON), modèle courant, envoi des requêtes, plus tard boucle d'outils et annulation. Appartient à la vue.
-- `AgentTools` (étape 3) : registre nom + schéma JSON + handler, avec un contexte (racines, callback de confirmation).
+- `AgentTools` (étape 3) : registre nom + schéma JSON + handler, avec un contexte (racines, callback de confirmation). **Registre dynamique, pas une liste figée** : beaucoup plus tard, l'utilisateur pourra ajouter ses propres outils en Lua ; les outils intégrés s'enregistrent par le même mécanisme. Un handler renvoie un résultat {erreur oui/non, texte} indépendant du format d'API.
+- Conventions des outils : noms et paramètres en anglais, snake_case, de la forme verbe_nom (`read_file`, `list_files`, `search_files`...), mêmes noms de paramètres d'un outil à l'autre (`path` partout). Descriptions et prompt système en anglais ; consigne explicite de répondre dans la langue de l'utilisateur (éventuellement ajouter la langue de l'interface au prompt système).
+- Le modèle d'embedding listé par `/models` reste visible (pas de filtrage par nom).
 - Interface (AgentView / AgentEditor) séparée de la logique.
 
 ## Étapes
@@ -105,6 +142,14 @@ Menus : effacer (Ctrl+Shift+L), changer de modèle, annuler (Échap), copier la 
   - `/undo` : retire le dernier échange réussi (message + réponse) de l'historique ET de la zone de texte, ainsi que tout ce qui a été écrit après (sorties de commandes, erreurs, la commande `/undo` elle-même). Répétable. La vue mémorise la position de début de chaque échange réussi (`exchangeStarts`).
   - `/retry` : comme `/undo`, puis réécrit le même message dans la zone de saisie et le renvoie.
   - Pas d'items de menu pour `/undo` et `/retry` pour l'instant.
-- [ ] Étape 3
+- [x] Étape 3 (compilée ; format des requêtes/réponses avec outils vérifié avec curl contre le serveur local ; outils eux-mêmes à tester dans l'interface)
+  - Choix de la racine : `App::ChooseAgentRoot()`. Titre de l'onglet : « Nom de l'agent (dossier) ».
+  - `src/agent/AgentTools.*` : registre (`AgentTools::Register`, outils intégrés enregistrés au premier accès), `ToolContext` (racine, limites, résolution et contrôle des chemins), `list_files`, `read_file`, `search_files`. Les handlers C++ s'appellent `ToolListFiles`, etc. (`ReadFile` entre en conflit avec l'API Windows).
+  - `AgentSession` : boucle d'outils (`HandleToolCalls`), au plus `maxToolIterations` tours ; en cas d'échec ou d'annulation, tout l'échange (message utilisateur, appels et résultats d'outils) est retiré de l'historique. Une phrase indiquant le nom de la racine est ajoutée au prompt système quand des outils sont actifs.
+  - Config : `tools` (absent = tous les outils), `maxToolIterations`, `limits` ; `agent_ignored_dirs` dans `config.ini` ; `workspace_file_list_exclude_exts` (déjà existant) est réutilisé pour ignorer des fichiers dans `search_files`.
+  - Chaque appel d'outil est écrit sur une ligne dans la conversation (« Outil read_file (path: ...): première ligne du résultat ») et annoncé brièvement (« Outil read_file »).
+  - Les outils s'exécutent sur le thread principal : une recherche sur une très grosse arborescence peut bloquer l'interface un moment. À déplacer sur le worker si ça pose problème.
+  - Attention : dans `FindReplaceInfo`, `FRI_ICASE` signifie en fait « sensible à la casse » (sans ce drapeau, la recherche est insensible).
+  - Corrigé au passage : `GlobToRegEx` testait `glob[i]` au lieu de `glob[i+1]` pour `[!...]`.
 - [ ] Étape 4
 - [ ] Étape 5

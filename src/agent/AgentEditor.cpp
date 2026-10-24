@@ -89,6 +89,12 @@ WriteText("\n\n");
 WritePromptInvite();
 }
 
+void AgentEditor::WriteToolCall (const wxString& text) {
+SetInsertionPoint(GetLastPosition());
+WriteText(text);
+WriteText("\n");
+}
+
 void AgentEditor::WritePromptInvite () {
 WriteHeader(MSG("PromptInvite"));
 SetInputInsertionPoint(GetLastPosition());

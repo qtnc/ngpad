@@ -13,8 +13,20 @@ AgentView::AgentView () {}
 
 AgentView::~AgentView () {}
 
-void AgentView::SetAgent (const AgentConfig& config) {
-session = std::make_unique<AgentSession>(config);
+void AgentView::SetAgent (const AgentConfig& config, const wxString& root) {
+session = std::make_unique<AgentSession>(config, root);
+}
+
+static wxString FormatToolCall (const std::string& name, const nlohmann::json& args, const ToolResult& result) {
+wxString argText;
+if (args.is_object()) for (auto& [key, value]: args.items()) {
+if (!argText.empty()) argText << ", ";
+argText << U(key) << ": " << U(value.is_string()? value.get<std::string>() : value.dump());
+}
+else if (args.is_string()) argText = U(args.get<std::string>());
+wxString summary = U(result.text.substr(0, result.text.find('\n')));
+if (summary.size()>150) summary = summary.Left(150) + wxString::FromUTF8("…");
+return U(format(GetTranslation("AgentToolCall"), name, U(argText), U(summary)));
 }
 
 bool AgentView::IsBusy () {
@@ -47,6 +59,10 @@ void AgentView::SendPrompt (const wxString& prompt) {
 auto& app = wxGetApp();
 wxString name = U(session->GetConfig().name);
 long exchangeStart = editor->GetCurrentMessageStart();
+auto onToolCall = [this](const std::string& toolName, const nlohmann::json& args, const ToolResult& result){
+editor->WriteToolCall(FormatToolCall(toolName, args, result));
+wxGetApp().SayText(U(format(GetTranslation("AgentToolCallSay"), toolName)));
+};
 bool sent = session->Send(prompt, [this, name, exchangeStart](bool success, const wxString& text){
 auto& app = wxGetApp();
 if (success) {
@@ -57,7 +73,7 @@ app.SayText(U(format(GetTranslation("AgentAnswerReceived"), U(name))));
 else {
 editor->WriteError(text);
 app.SayText(name + ": " + text);
-}});
+}}, onToolCall);
 if (sent) app.SayText(MSG("AgentThinking"));
 else editor->WriteError(MSG("AgentSendFailed"));
 }

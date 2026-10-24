@@ -3,6 +3,7 @@
 #include "../app/WebRequester.hpp"
 #include "../common/println.hpp"
 #include<unordered_map>
+#include <wx/filename.h>
 
 using json = nlohmann::json;
 
@@ -34,8 +35,13 @@ if (err.is_object() && err.contains("message") && err["message"].is_string()) re
 return body.substr(0, 500);
 }
 
-AgentSession::AgentSession (const AgentConfig& cfg):
-config(cfg), model(cfg.model), messages(json::array()), alive(std::make_shared<bool>(true))
+wxString GetWorkspaceName (const wxString& root) {
+auto dirs = wxFileName::DirName(root).GetDirs();
+return dirs.empty()? root : dirs.Last();
+}
+
+AgentSession::AgentSession (const AgentConfig& cfg, const wxString& root0):
+config(cfg), root(root0), model(cfg.model), messages(json::array()), alive(std::make_shared<bool>(true))
 {}
 
 AgentSession::~AgentSession () {
@@ -76,8 +82,15 @@ json AgentSession::BuildRequestBody () {
 json body = json::object();
 for (auto& [key, value]: config.extraBody.items()) body[key] = value;
 if (!model.empty()) body["model"] = model;
+json tools = AgentTools::GetDefinitions(config);
+std::string systemPrompt = config.systemPrompt;
+if (!tools.empty()) {
+if (!systemPrompt.empty()) systemPrompt += "\n\n";
+systemPrompt += format("The workspace root is the folder '{}'. All file paths are relative to it and use '/' as separator.", U(GetWorkspaceName(root)));
+body["tools"] = tools;
+}
 json msgs = json::array();
-if (!config.systemPrompt.empty()) msgs.push_back({ {"role", "system"}, {"content", config.systemPrompt} });
+if (!systemPrompt.empty()) msgs.push_back({ {"role", "system"}, {"content", systemPrompt} });
 for (auto& m: messages) msgs.push_back(m);
 body["messages"] = msgs;
 if (config.temperature>=0) body["temperature"] = config.temperature;
@@ -131,32 +144,82 @@ default: return;
 callback(body, error);
 }
 
-bool AgentSession::Send (const wxString& prompt, const ResponseCallback& callback) {
+bool AgentSession::Send (const wxString& prompt, const ResponseCallback& callback, const ToolCallCallback& toolCallback) {
+if (busy) return false;
+exchangeStart = messages.size();
+toolIterations = 0;
+pendingCallback = callback;
+pendingToolCallback = toolCallback;
 messages.push_back({ {"role", "user"}, {"content", U(prompt)} });
-bool started = StartRequest("chat/completions", BuildRequestBody().dump(), [this, callback](const std::string& body, const std::string& error){
-OnChatResponse(body, error, callback);
-});
-if (!started) messages.erase(messages.size() -1);
+bool started = SendChatRequest();
+if (!started) messages.erase(messages.begin() +exchangeStart, messages.end());
 return started;
 }
 
-void AgentSession::OnChatResponse (const std::string& body, std::string error, const ResponseCallback& callback) {
+bool AgentSession::SendChatRequest () {
+return StartRequest("chat/completions", BuildRequestBody().dump(), [this](const std::string& body, const std::string& error){
+OnChatResponse(body, error);
+});
+}
+
+void AgentSession::FailExchange (const std::string& error) {
+// Remove the unanswered exchange so that the history stays consistent
+if (exchangeStart<messages.size()) messages.erase(messages.begin() +exchangeStart, messages.end());
+pendingCallback(false, U(error));
+}
+
+void AgentSession::OnChatResponse (const std::string& body, std::string error) {
 if (error.empty()) try {
 json j = json::parse(body);
 auto& message = j.at("choices").at(0).at("message");
+auto toolCalls = message.find("tool_calls");
+if (toolCalls!=message.end() && toolCalls->is_array() && !toolCalls->empty()) {
+HandleToolCalls(message);
+return;
+}
 std::string content = message.contains("content") && message["content"].is_string()? message["content"].get<std::string>() : "";
 if (!content.empty()) {
 messages.push_back({ {"role", "assistant"}, {"content", content} });
-callback(true, U(content));
+pendingCallback(true, U(content));
 return;
 }
 error = GetTranslation("AgentEmptyResponse");
 } catch (std::exception& ex) {
 error = format("{}: {}", GetTranslation("AgentInvalidResponse"), ex.what());
 }
-// Remove the unanswered prompt so that the history stays consistent
-if (!messages.empty() && messages.back().value("role", "")=="user") messages.erase(messages.size() -1);
-callback(false, U(error));
+FailExchange(error);
+}
+
+void AgentSession::HandleToolCalls (const json& message) {
+if (++toolIterations > config.maxToolIterations) {
+FailExchange(format(GetTranslation("AgentTooManyToolCalls"), config.maxToolIterations));
+return;
+}
+json calls = message["tool_calls"];
+for (size_t i=0; i<calls.size(); i++) {
+if (!calls[i].contains("id") || !calls[i]["id"].is_string()) calls[i]["id"] = format("call_{}_{}", toolIterations, i);
+}
+std::string content = message.contains("content") && message["content"].is_string()? message["content"].get<std::string>() : "";
+messages.push_back({ {"role", "assistant"}, {"content", content}, {"tool_calls", calls} });
+ToolContext context(root, config.limits);
+for (auto& call: calls) {
+std::string name, arguments;
+if (call.contains("function") && call["function"].is_object()) {
+auto& function = call["function"];
+name = function.value("name", "");
+if (function.contains("arguments")) {
+auto& a = function["arguments"];
+arguments = a.is_string()? a.get<std::string>() : a.dump();
+}}
+ToolResult result = AgentTools::Execute(name, arguments, context);
+if (pendingToolCallback) {
+json args;
+try { args = json::parse(arguments); } catch (...) { args = arguments; }
+pendingToolCallback(name, args, result);
+}
+messages.push_back({ {"role", "tool"}, {"tool_call_id", call["id"]}, {"name", name}, {"content", result.text} });
+}
+if (!SendChatRequest()) FailExchange(GetTranslation("AgentSendFailed"));
 }
 
 bool AgentSession::ListModels (const ModelListCallback& callback, bool forceRefresh) {

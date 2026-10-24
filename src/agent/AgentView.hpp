@@ -16,7 +16,7 @@ AgentView ();
 struct AgentEditor* GetEditor () { return editor; }
 struct AgentSession* GetSession () { return session.get(); }
 
-void SetAgent (const struct AgentConfig& config);
+void SetAgent (const struct AgentConfig& config, const wxString& root);
 bool IsBusy ();
 void ClearAgent ();
 void Send (const wxString& prompt);

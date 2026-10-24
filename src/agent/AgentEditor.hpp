@@ -28,6 +28,7 @@ void WritePromptInvite ();
 void WriteAnswer (const wxString& answer);
 void WriteError (const wxString& error);
 void WriteInfo (const wxString& info);
+void WriteToolCall (const wxString& text);
 void Reset ();
 long GetCurrentMessageStart ();
 void TruncateFrom (long pos);
