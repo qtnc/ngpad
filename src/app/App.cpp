@@ -5,8 +5,7 @@
 #include "../text/TextDocument.hpp"
 #include "../console/ConsoleView.hpp"
 #include "../console/ConsoleDocument.hpp"
-#include "../agent/AgentView.hpp"
-#include "../agent/AgentDocument.hpp"
+#include "../agent/AgentDialog.hpp"
 #include "../agent/AgentConfig.hpp"
 #include "../agent/AgentSession.hpp"
 #include "../common/SingleChoiceDialog.hpp"
@@ -245,7 +244,6 @@ OnExceptionInMainLoop();
 bool App::initDocManager () {
 docManager = new wxDocManager();
 auto consoleTpl = new wxDocTemplate(docManager, "Console", "*.console", wxEmptyString, "console", "consoleDoc", "consoleView", wxCLASSINFO(ConsoleDocument), wxCLASSINFO(ConsoleView), wxTEMPLATE_INVISIBLE);
-auto agentTpl = new wxDocTemplate(docManager, "Agent", "*.agent", wxEmptyString, "agent", "agentDoc", "agentView", wxCLASSINFO(AgentDocument), wxCLASSINFO(AgentView), wxTEMPLATE_INVISIBLE);
 auto textTpl = new wxDocTemplate(docManager, "Text files", "*.*", wxEmptyString, "txt", "textDoc", "textView", wxCLASSINFO(TextDocument), wxCLASSINFO(TextView), wxTEMPLATE_VISIBLE);
 
 wxFileConfig fileConfig(GetAppName());
@@ -427,24 +425,30 @@ UpdateTitle();
 return static_cast<AbstractDocument*>( doc );
 }
 
-AbstractDocument* App::CreateAgent (const AgentConfig& config, const wxString& root) {
+AgentDialog* App::FindAgent (const wxString& root) {
+for (auto win: wxTopLevelWindows) {
+auto dlg = dynamic_cast<AgentDialog*>(win);
+if (dlg && !dlg->IsBeingDeleted() && dlg->GetRoot().IsSameAs(root, false)) return dlg;
+}
+return nullptr;
+}
+
+AgentDialog* App::CreateAgent (const AgentConfig& config, const wxString& root) {
 wxString folder = GetWorkspaceName(root);
-wxString name = folder.empty()? U(config.name) : U(config.name) + " (" + folder + ")", title = name;
-for (int i=2; ; i++) {
-bool found = false;
-for (auto doc: docManager->GetDocumentsVector()) {
-if (doc->GetTitle()==title) { found=true; break; }
-}
-if (!found) break;
-title = wxString::Format("%s (%d)", name, i);
-}
-auto doc = CreateNewEmptyDocument("ai.agent", title);
-auto view = doc? dynamic_cast<AgentView*>(doc->GetFirstView()) :nullptr;
-if (view) view->SetAgent(config, root);
-return doc;
+wxString title = folder.empty()? U(config.name) : U(config.name) + " (" + folder + ")";
+auto dlg = new AgentDialog(mainWindow, title, config, root);
+dlg->ShowAgent();
+return dlg;
 }
 
 void App::OnOpenAgentDialog () {
+wxString root = ChooseAgentRoot();
+if (root.empty()) return;
+// Only one agent per root: it keeps its conversation until it is explicitly closed
+if (auto dlg = FindAgent(root)) {
+dlg->ShowAgent();
+return;
+}
 std::vector<AgentConfig> configs;
 wxString error;
 if (!AgentConfig::LoadAll(configs, error)) {
@@ -460,35 +464,18 @@ if (wxID_OK!=dlg.ShowModal()) return;
 selection = dlg.GetSelection();
 if (selection<0) return;
 }
-wxString root = ChooseAgentRoot();
-if (root.empty()) return;
 CreateAgent(configs[selection], root);
 }
 
 wxString App::ChooseAgentRoot () {
-std::vector<wxString> roots;
-auto addRoot = [&](wxDocument* wxdoc){
-auto doc = dynamic_cast<TextDocument*>(wxdoc);
-if (!doc || !wxFileExists(doc->GetFilename())) return;
+auto doc = dynamic_cast<TextDocument*>(docManager->GetCurrentDocument());
+if (doc && wxFileExists(doc->GetFilename())) {
 wxString root = doc->GetWorkspaceRoot();
 while (root.size()>1 && root.EndsWith(wxFILE_SEP_PATH) && !root.EndsWith(":" + wxString(wxFILE_SEP_PATH))) root.RemoveLast();
-if (root.empty()) return;
-for (auto& r: roots) if (r.IsSameAs(root, false)) return;
-roots.push_back(root);
-};
-addRoot(docManager->GetCurrentDocument());
-for (auto doc: docManager->GetDocumentsVector()) addRoot(doc);
-if (roots.size()==1) return roots[0];
-if (roots.empty()) {
+if (!root.empty()) return root;
+}
 wxDirDialog dlg(GetTopWindow(), MSG("ChooseAgentRootDir"), wxGetCwd(), wxDD_DEFAULT_STYLE | wxDD_DIR_MUST_EXIST);
 return wxID_OK==dlg.ShowModal()? dlg.GetPath() : wxString();
-}
-wxArrayString names;
-for (auto& r: roots) names.push_back(r);
-SingleChoiceDialog dlg(GetTopWindow(), MSG("ChooseAgentTitle"), MSG("ChooseAgentRoot"), names);
-if (wxID_OK!=dlg.ShowModal()) return wxEmptyString;
-int i = dlg.GetSelection();
-return i>=0? roots[i] : wxString();
 }
 
 AbstractDocument* App::CreateLuaConsole () {

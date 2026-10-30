@@ -5,19 +5,17 @@ Notes de travail pour l'ajout d'agents IA dans l'éditeur. À relire avant de re
 ## Scénario utilisateur
 
 1. F11 ou menu Outils > Agent IA... → `App::OnOpenAgentDialog()`.
-2. Choix de l'agent parmi ceux configurés (SingleChoiceDialog ; sauté s'il n'y en a qu'un).
-3. Un onglet / une fenêtre s'ouvre (AgentDocument, AgentView, AgentEditor). Titre = nom de l'agent.
-4. L'utilisateur tape son prompt et l'envoie avec Shift+Enter (`AgentEditor::OnShiftEnter()` → `AgentView::Send()`).
+2. La racine est celle du document actif (`App::ChooseAgentRoot()`). Si un agent existe déjà pour cette racine, son dialogue est réaffiché tel quel.
+3. Sinon, choix de l'agent parmi ceux configurés (SingleChoiceDialog ; sauté s'il n'y en a qu'un), puis ouverture d'un dialogue non modal (`AgentDialog`, `AgentEditor`). Titre = « Nom de l'agent (dossier) ».
+4. L'utilisateur tape son prompt et l'envoie avec Shift+Enter (`AgentEditor::OnShiftEnter()` → `AgentDialog::Send()`).
 5. Requête HTTP via `WebRequester`, réponse complète ajoutée par `AgentEditor::WriteAnswer()`.
-6. La conversation continue ; elle est perdue à la fermeture.
-7. Plusieurs agents peuvent être ouverts simultanément, chacun avec son propre contexte.
+6. Échap (ou la case de fermeture) masque seulement le dialogue : la conversation et une requête en cours sont conservées. F11 y revient. « Fermer l'agent » (menu contextuel) le détruit et perd la conversation.
+7. Un seul agent par racine ; plusieurs racines = plusieurs dialogues, chacun avec son propre contexte.
 
 ## Décisions prises
 
-- **Racine unique par agent** (décision révisée ; l'ancienne idée « ensemble des racines des documents ouverts » est abandonnée car ambiguë, surtout pour l'écriture). Choisie à l'ouverture de l'agent et fixe pour toute sa durée de vie :
-  - racines candidates = racines distinctes (`GetWorkspaceRoot()`) des documents ouverts ayant un nom de fichier ; celle du document actif en premier ;
-  - une seule candidate → utilisée directement ; plusieurs → SingleChoiceDialog ; aucune → sélecteur de répertoire (à confirmer) ;
-  - pour travailler sur deux projets, on ouvre deux agents. Meilleure isolation entre projets.
+- **Dialogue non modal plutôt qu'onglet** (décision révisée ; l'agent était d'abord un type de document comme la console). Le document actif de la fenêtre principale reste celui que l'utilisateur regarde, ce qui servira à `get_editor_context` : on pourra le lire à chaque envoi.
+- **Un agent par racine**, racine fixe pour toute sa durée de vie : `GetWorkspaceRoot()` du document actif s'il a un nom de fichier, sinon sélecteur de répertoire. Retrouvé par `App::FindAgent()` (parcours de `wxTopLevelWindows`, comparaison insensible à la casse). Pour travailler sur deux projets, on ouvre deux agents. Meilleure isolation entre projets.
   - Le modèle ne voit que des chemins relatifs à la racine, avec `/` comme séparateur. En entrée on accepte aussi `\`, un `/` initial (= racine de l'espace de travail, jamais la racine du disque) et les chemins absolus situés sous la racine. Tout ce qui sort de la racine est refusé (canonicalisation, `..`).
 - **Écritures** : confirmation à **chaque** écriture pour l'instant. Plus tard : option globale ou par agent (`permissions`: `ask` / `auto` / `readonly`).
 - **Fichier déjà ouvert** : lecture ET écriture dans le contenu de l'éditeur (`FindEditor()`, `ReplaceAndPushUndoState`), sans enregistrement automatique. Fichier fermé : lecture / écriture sur disque (`LoadFile` / `SaveFile` + editorconfig). La confirmation indique lequel des deux cas s'applique.
@@ -30,8 +28,9 @@ Notes de travail pour l'ajout d'agents IA dans l'éditeur. À relire avant de re
 ## Points d'attention
 
 - Serveur de test : http://localhost:1235/v1/ (modèle `mistralai/ministral-3-3b`), **très lent**. Le délai de réception WinHTTP par défaut (30 s) est trop court → délai configurable (`timeout`).
-- Pendant une requête : état « en cours », Shift+Enter bloqué, annonces `SayText` au départ et à l'arrivée (même si l'utilisateur est sur un autre onglet), annulation par Échap (étape 2).
-- Onglet fermé pendant une requête : ne pas toucher à une vue détruite (annuler la requête ou vérifier la validité).
+- Pendant une requête : état « en cours », Shift+Enter bloqué, annonces `SayText` au départ et à l'arrivée (même si le dialogue est masqué), annulation par Shift+Échap (Échap seul masque le dialogue).
+- Agent fermé pendant une requête : ne pas toucher à un dialogue détruit (annuler la requête ou vérifier la validité).
+- Confirmation d'écriture alors que le dialogue est masqué : il est réaffiché avant la question.
 - Boucle d'outils : un prompt peut produire plusieurs requêtes ; limiter le nombre de tours (`maxToolIterations`) et afficher chaque appel d'outil en une ligne.
 - Petit modèle (3B) : peu d'outils (~5), schémas simples.
 - `edit_file` (remplacement exact) est préférable à `write_file` : moins de tokens, et échoue proprement si l'utilisateur a modifié le passage entre-temps.
@@ -112,7 +111,7 @@ Règles communes :
 
 Communs aux deux outils d'écriture :
 - Le modèle ne sait pas si le fichier est ouvert ou non (lecture et recherche lisent déjà l'éditeur, donc vue cohérente).
-- Confirmation : `wxMessageDialog` Autoriser / Refuser / Arrêter l'agent ; le message donne le fichier et l'endroit (éditeur sans enregistrer / disque). Pas de `SayText`. Refuser → erreur renvoyée au modèle, la boucle continue. Arrêter (ou Échap) → comme une annulation : l'échange est retiré de l'historique, les appels restants abandonnés (les modifications déjà autorisées restent dans les fichiers).
+- Confirmation : `wxMessageDialog` Autoriser / Refuser / Arrêter l'agent ; le message donne le fichier et l'endroit (éditeur sans enregistrer / disque). Pas de `SayText`. Refuser → erreur renvoyée au modèle, la boucle continue. Arrêter (ou Échap dans la confirmation) → comme une annulation : l'échange est retiré de l'historique, les appels restants abandonnés (les modifications déjà autorisées restent dans les fichiers).
 - Dans la conversation, seul l'argument `path` est affiché (`AgentTool::modifiesFiles`). Chaque appel d'outil est écrit en entier dans `debug.txt` via `println`.
 
 Plus tard : remplacement multifichier (`ReplaceAllMultiple`, avec confirmation), `get_editor_context` (fichier actif, ligne, sélection), `open_in_editor(path, line)`, déplacer / supprimer (confirmation), exécuter une commande (beaucoup plus tard).
@@ -120,21 +119,21 @@ Plus tard : remplacement multifichier (`ReplaceAllMultiple`, avec confirmation),
 ## Commandes et menus prévus (étape 2)
 
 `/clear`, `/model [nom]` (sans argument : liste via `GET /models`), `/retry`, `/undo`, `/stop`, `/system`, `/roots`, `/tokens`, `/save`, `/help`.
-Menus : effacer (Ctrl+Shift+L), changer de modèle, annuler (Échap), copier la dernière réponse, navigation entre messages (ex. Alt+Haut / Alt+Bas).
+Menu contextuel (pas de barre de menus dans le dialogue) : copier, tout sélectionner, enregistrer (Ctrl+S), effacer (Ctrl+Shift+L), changer de modèle (Ctrl+M), annuler (Shift+Échap), fermer l'agent. Navigation entre messages (Ctrl+Haut / Ctrl+Bas).
 
 ## Architecture
 
 - `AgentConfig` : lecture de `config/agents.json`.
-- `AgentSession` : historique (JSON), modèle courant, envoi des requêtes, plus tard boucle d'outils et annulation. Appartient à la vue.
+- `AgentSession` : historique (JSON), modèle courant, envoi des requêtes, boucle d'outils et annulation. Appartient au dialogue.
 - `AgentTools` (étape 3) : registre nom + schéma JSON + handler, avec un contexte (racines, callback de confirmation). **Registre dynamique, pas une liste figée** : beaucoup plus tard, l'utilisateur pourra ajouter ses propres outils en Lua ; les outils intégrés s'enregistrent par le même mécanisme. Un handler renvoie un résultat {erreur oui/non, texte} indépendant du format d'API.
 - Conventions des outils : noms et paramètres en anglais, snake_case, de la forme verbe_nom (`read_file`, `list_files`, `search_files`...), mêmes noms de paramètres d'un outil à l'autre (`path` partout). Descriptions et prompt système en anglais ; consigne explicite de répondre dans la langue de l'utilisateur (éventuellement ajouter la langue de l'interface au prompt système).
 - Le modèle d'embedding listé par `/models` reste visible (pas de filtrage par nom).
-- Interface (AgentView / AgentEditor) séparée de la logique.
+- Interface (AgentDialog / AgentEditor) séparée de la logique.
 
 ## Étapes
 
 1. **Conversation simple sans outils** : config, choix de l'agent, requête `chat/completions`, timeout, état en cours, annonces, erreurs affichées, protection fermeture d'onglet.
-2. Commandes, menus, annulation (Échap), navigation entre messages.
+2. Commandes, menus, annulation, navigation entre messages.
 3. Outils en lecture seule : `list_files`, `read_file`, `search`.
 4. Outils d'écriture avec confirmation : `edit_file`, `write_file`.
 5. Compléments (outils supplémentaires, variables d'environnement, recherche de config avancée, permissions configurables).
@@ -169,4 +168,9 @@ Menus : effacer (Ctrl+Shift+L), changer de modèle, annuler (Échap), copier la 
   - `edit_file` et `write_file` dans `AgentTools.cpp` (`ToolEditFile`, `ToolWriteFile`, écriture commune `WriteTextFile`).
   - `ToolContext::confirm` (callback fourni par `AgentView` via `AgentSession::SetConfirmCallback` ; absent = refus). `ToolResult::stop` interrompt la boucle d'outils (`FailExchange`).
   - Corrigé au passage : `SaveFile` lisait `text[-1]` sur un texte vide avec `insert_final_newline`.
+- [x] Passage en dialogue non modal (compilé ; à tester dans l'interface)
+  - `AgentView` / `AgentDocument` remplacés par `AgentDialog` (`wxDIALOG_NO_PARENT`, parent = fenêtre principale) ; le modèle de document « Agent » est supprimé.
+  - Raccourcis par table d'accélérateurs du dialogue (Ctrl+Shift+L, Ctrl+M, Ctrl+S) ; Échap et Shift+Échap dans `AgentDialog::OnCharHook`.
+  - Enregistrement de la conversation : Ctrl+S, menu contextuel ou `/save` (UTF-8, `.md` par défaut, proposé dans la racine).
+  - F6 (`IDM_SWITCH_PANE`) ne sert qu'à passer de l'éditeur au panneau latéral dans `TextView` : rien pour passer d'une fenêtre flottante à l'autre. Le dialogue apparaît dans la barre des tâches, donc Alt+Tab fonctionne.
 - [ ] Étape 5

@@ -1,7 +1,6 @@
 #ifndef _____AGENT_EDITOR_HPP
 #define _____AGENT_EDITOR_HPP
 #include "../common/wxUtils.hpp"
-#include "wx/docview.h"
 #include<memory>
 #include<vector>
 
@@ -9,7 +8,7 @@ class AgentEditor: public wxTextCtrl {
 private:
 struct MessageMark { long headerStart, contentStart; };
 
-struct AgentView* view;
+class AgentDialog* dialog;
 int inputInsertionPoint;
 std::vector<MessageMark> messageMarks;
 
@@ -17,9 +16,7 @@ void WriteHeader (const wxString& header);
 long GetMessageContentEnd (size_t index);
 
 public:
-AgentEditor (AgentView* view, wxWindow* parent, int id, const wxString& text, const wxPoint& pos, const wxSize& size, long flags);
-
-struct AgentDocument* GetDocument ();
+AgentEditor (AgentDialog* dialog, wxWindow* parent, int id, const wxString& text, const wxPoint& pos, const wxSize& size, long flags);
 
 bool IsEditableAtInsertionPoint (bool bs = false);
 int GetInputInsertionPoint () { return inputInsertionPoint; }
@@ -45,8 +42,7 @@ void OnCtrlEnter ();
 bool OnBackspace ();
 bool OnDelete ();
 
-friend class AgentView;
-friend class AgentDocument;
+friend class AgentDialog;
 };
 
 #endif

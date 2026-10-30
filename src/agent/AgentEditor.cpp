@@ -1,13 +1,12 @@
 #include "AgentEditor.hpp"
 #include "../common/println.hpp"
-#include "AgentView.hpp"
-#include "AgentDocument.hpp"
+#include "AgentDialog.hpp"
 #include "../app/App.hpp"
 #include "../common/stringUtils.hpp"
 
-AgentEditor::AgentEditor (AgentView* view0, wxWindow* parent, int id, const wxString& text, const wxPoint& pos, const wxSize& size, long flags):
+AgentEditor::AgentEditor (AgentDialog* dialog0, wxWindow* parent, int id, const wxString& text, const wxPoint& pos, const wxSize& size, long flags):
 wxTextCtrl(parent, id, text, pos, size, flags | wxTE_MULTILINE | wxTE_NOHIDESEL | wxVSCROLL | wxTE_PROCESS_TAB | wxTE_PROCESS_ENTER),
-view(view0) 
+dialog(dialog0)
 {
 Bind(wxEVT_TEXT_CUT, &AgentEditor::OnCut, this);
 Bind(wxEVT_TEXT_PASTE, &AgentEditor::OnPaste, this);
@@ -15,12 +14,8 @@ Bind(wxEVT_CHAR_HOOK, &AgentEditor::OnCharHook, this);
 Bind(wxEVT_CHAR, &AgentEditor::OnChar, this);
 }
 
-AgentDocument* AgentEditor::GetDocument () {
-return view? static_cast<AgentDocument*>(view->GetDocument()) : nullptr;
-}
-
 bool AgentEditor::IsEditableAtInsertionPoint (bool backspace) {
-if (view && view->IsBusy()) return false;
+if (dialog && dialog->IsBusy()) return false;
 long ss, se, ip = GetInputInsertionPoint();
 GetSelection(&ss, &se);
 if (backspace) return ss>ip && se>ip && ip>=0;
@@ -38,7 +33,7 @@ else wxBell();
 }
 
 void AgentEditor::OnShiftEnter () {
-if (view && view->IsBusy()) {
+if (dialog && dialog->IsBusy()) {
 wxBell();
 wxGetApp().SayText(MSG("AgentBusy"));
 return;
@@ -57,7 +52,7 @@ return;
 wxString prompt = GetRange(ip, last);
 WriteText("\n\n");
 SetInputInsertionPoint(GetInsertionPoint());
-view->Send(prompt);
+dialog->Send(prompt);
  }
 
 void AgentEditor::WriteHeader (const wxString& header) {

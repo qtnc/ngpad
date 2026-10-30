@@ -1,22 +1,23 @@
-#ifndef _____AGENT_VIEW_HPP
-#define _____AGENT_VIEW_HPP
-#include "../app/AbstractView.hpp"
+#ifndef _____AGENT_DIALOG_HPP
+#define _____AGENT_DIALOG_HPP
+#include "../common/wxUtils.hpp"
 #include<memory>
 #include<vector>
 
-class AgentView: public AbstractView {
+class AgentDialog: public wxDialog {
 private:
 struct AgentEditor* editor = nullptr;
 std::unique_ptr<struct AgentSession> session;
 std::vector<long> exchangeStarts;
 
 public:
-AgentView ();
-~AgentView ();
+AgentDialog (wxWindow* parent, const wxString& title, const struct AgentConfig& config, const wxString& root);
+~AgentDialog ();
 struct AgentEditor* GetEditor () { return editor; }
 struct AgentSession* GetSession () { return session.get(); }
+const wxString& GetRoot () const;
 
-void SetAgent (const struct AgentConfig& config, const wxString& root);
+void ShowAgent ();
 bool IsBusy ();
 void ClearAgent ();
 void Send (const wxString& prompt);
@@ -27,15 +28,15 @@ void ShowModelList ();
 void ShowModelDialog ();
 void CancelRequest ();
 void UndoLastExchange (bool retry);
+void SaveConversation ();
+void CloseAgent ();
 
-bool OnCreate (wxDocument* doc, long flags) override;
-void OnUpdate (wxView* sender, wxObject* param) override;
-bool OnMenuAction (wxCommandEvent& e) override;
+void OnCharHook (wxKeyEvent& e);
+void OnClose (wxCloseEvent& e);
+void OnContextMenu (wxContextMenuEvent& e);
+void OnMenuAction (wxCommandEvent& e);
 
-friend class AgentDocument;
 friend class AgentEditor;
-
-wxDECLARE_DYNAMIC_CLASS(AgentView);
 };
 
 #endif
