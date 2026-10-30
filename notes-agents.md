@@ -67,7 +67,7 @@ Seuls `name` et `url` sont obligatoires. `tools`, `permissions`, `maxToolIterati
 | `list_files(glob, root?)` | chemins relatifs, nombre limité, ignore `.git`, `obj`... | `FindAllFiles` |
 | `read_file(path, start?, end?)` | numéros de ligne, tronqué au-delà d'une limite | `FindEditor` / `LoadFile` |
 | `search(pattern, glob, regex?)` | résultats `fichier:ligne:texte` | `FindReplaceInfo::FindAllMultiple` |
-| `edit_file(path, old, new, replace_all?)` | remplacement exact | `ReplaceAndPushUndoState` |
+| `edit_file(path, old_text, new_text, replace_all?)` | remplacement exact | `ReplaceAndPushUndoState` |
 | `write_file(path, content)` | créer / écraser | `SaveFile` |
 
 ### Fiches détaillées (brouillon à valider)
@@ -100,6 +100,20 @@ Règles communes :
 - `regex` (boolean, optionnel, défaut false) : expression régulière PCRE.
 - Réutilise `FindReplaceInfo::FindAllMultiple` (contenu de l'éditeur pour les fichiers ouverts), avec `FRI_ICASE`.
 - Retour : `src/app/App.cpp:92: texte`, lignes coupées à `searchMaxLineLength` avec `…`. Ligne finale `[42 matches in 7 files]`. Troncature : `[N more matches not shown. Use a more specific path or pattern.]`. Vide : `No matches for '<pattern>' in <path>`.
+
+**edit_file(path, old_text, new_text, replace_all?)**
+- Remplacement exact (comparaison sur le texte normalisé en `\n`, aucune tolérance sur les espaces). Une seule occurrence exigée sauf `replace_all: true` (convention établie : Claude Code, Codex, Aider) ; 0 occurrence ou plusieurs sans `replace_all` = erreur. `old_text` vide → erreur renvoyant vers `write_file`.
+- Pas d'option `regex` en v1 ; à ajouter plus tard (même booléen que `search_files`, substitutions `$1`…`$9`, même règle d'unicité).
+- Retour : `Edited <path>: N replacement(s).`
+
+**write_file(path, content)**
+- Fichier ouvert : tout le contenu de l'éditeur est remplacé (annulable). Fichier fermé existant : encodage et fins de ligne conservés (`LoadFile` + editorconfig). Nouveau fichier : editorconfig puis `default_charset` / `default_line_ending` de `config.ini` ; répertoires manquants créés ; pas d'ouverture dans un onglet.
+- Retour : `Wrote <path>: N line(s).`
+
+Communs aux deux outils d'écriture :
+- Le modèle ne sait pas si le fichier est ouvert ou non (lecture et recherche lisent déjà l'éditeur, donc vue cohérente).
+- Confirmation : `wxMessageDialog` Autoriser / Refuser / Arrêter l'agent ; le message donne le fichier et l'endroit (éditeur sans enregistrer / disque). Pas de `SayText`. Refuser → erreur renvoyée au modèle, la boucle continue. Arrêter (ou Échap) → comme une annulation : l'échange est retiré de l'historique, les appels restants abandonnés (les modifications déjà autorisées restent dans les fichiers).
+- Dans la conversation, seul l'argument `path` est affiché (`AgentTool::modifiesFiles`). Chaque appel d'outil est écrit en entier dans `debug.txt` via `println`.
 
 Plus tard : remplacement multifichier (`ReplaceAllMultiple`, avec confirmation), `get_editor_context` (fichier actif, ligne, sélection), `open_in_editor(path, line)`, déplacer / supprimer (confirmation), exécuter une commande (beaucoup plus tard).
 
@@ -151,5 +165,8 @@ Menus : effacer (Ctrl+Shift+L), changer de modèle, annuler (Échap), copier la 
   - Les outils s'exécutent sur le thread principal : une recherche sur une très grosse arborescence peut bloquer l'interface un moment. À déplacer sur le worker si ça pose problème.
   - Attention : dans `FindReplaceInfo`, `FRI_ICASE` signifie en fait « sensible à la casse » (sans ce drapeau, la recherche est insensible).
   - Corrigé au passage : `GlobToRegEx` testait `glob[i]` au lieu de `glob[i+1]` pour `[!...]`.
-- [ ] Étape 4
+- [x] Étape 4 (compilée ; à tester dans l'interface)
+  - `edit_file` et `write_file` dans `AgentTools.cpp` (`ToolEditFile`, `ToolWriteFile`, écriture commune `WriteTextFile`).
+  - `ToolContext::confirm` (callback fourni par `AgentView` via `AgentSession::SetConfirmCallback` ; absent = refus). `ToolResult::stop` interrompt la boucle d'outils (`FailExchange`).
+  - Corrigé au passage : `SaveFile` lisait `text[-1]` sur un texte vide avec `insert_final_newline`.
 - [ ] Étape 5

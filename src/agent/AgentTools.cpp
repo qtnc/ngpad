@@ -2,6 +2,7 @@
 #include "../app/App.hpp"
 #include "../text/TextDocument.hpp"
 #include "../text/FindReplaceDialog.hpp"
+#include "../text/TextEditor.hpp"
 #include "../common/stringUtils.hpp"
 #include "../common/println.hpp"
 #include <wx/filename.h>
@@ -15,6 +16,13 @@ using json = nlohmann::json;
 
 void LoadEditorConfig (Properties& properties, const wxString& filename);
 bool LoadFile (const wxString& filename, wxString& text, Properties& properties);
+bool SaveFile (const wxString& filename, wxString& text, const Properties& properties);
+int GetEncodingFromName (const std::string& name);
+int GetLineEndingFromName (const std::string& name);
+int GetEncoding (const Properties& properties);
+int GetLineEnding (const Properties& properties);
+void SetEncoding (Properties& properties, int encoding);
+void SetLineEnding (Properties& properties, int lineEnding);
 wxRegEx GlobToRegEx (const wxString& glob);
 
 #define DEFAULT_AGENT_IGNORED_DIRS ".git, .svn, .hg, node_modules, obj, objd, __pycache__"
@@ -75,6 +83,10 @@ bool ToolContext::IsExcludedFile (const wxString& name) const {
 wxString ext = wxFileName(name).GetExt();
 for (auto& e: excludedExtensions) if (e.IsSameAs(ext, false)) return true;
 return false;
+}
+
+ToolConfirmation ToolContext::Confirm (const wxString& message) const {
+return confirm? confirm(message) : ToolConfirmation::Deny;
 }
 
 static std::string GetStringArg (const json& args, const std::string& key, const std::string& def = "") {
@@ -161,6 +173,49 @@ return true;
 Properties properties;
 LoadEditorConfig(properties, filename);
 return LoadFile(filename, text, properties);
+}
+
+// Write the new content of a file: in the editor if the file is open (without saving), otherwise on disk
+static bool WriteTextFile (const wxString& filename, wxString text) {
+if (auto iface = FindOpenEditor(filename)) {
+auto editor = dynamic_cast<TextEditor*>(iface);
+if (!editor) return false;
+auto [start, end] = editor->GetSelection();
+editor->ReplaceAndPushUndoState(0, editor->GetLastPosition(), text);
+long last = editor->GetLastPosition();
+editor->SetSelection(std::min(start, last), std::min(end, last));
+return true;
+}
+Properties properties;
+LoadEditorConfig(properties, filename);
+if (wxFileExists(filename)) {
+// Keep the encoding and line ending of the existing file
+wxString oldText;
+if (!LoadFile(filename, oldText, properties)) return false;
+}
+else {
+auto& config = wxGetApp().GetConfig();
+if (GetEncoding(properties)==wxFONTENCODING_DEFAULT) SetEncoding(properties, GetEncodingFromName(config.get("default_charset", "utf-8")));
+if (GetLineEnding(properties)<0) SetLineEnding(properties, GetLineEndingFromName(config.get("default_line_ending", "crlf")));
+wxLogNull noLog;
+wxFileName::Mkdir(wxFileName(filename).GetPath(), wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
+}
+return SaveFile(filename, text, properties);
+}
+
+static wxString GetWriteLocation (const wxString& filename) {
+return FindOpenEditor(filename)? MSG("AgentInEditor") : MSG("AgentOnDisk");
+}
+
+static ToolResult RefusedResult (ToolConfirmation answer) {
+if (answer==ToolConfirmation::Stop) return ToolResult::Stop();
+return ToolResult::Error("The user denied this change. Don't retry it: ask the user what to do instead.");
+}
+
+static size_t CountOccurrences (const wxString& text, const wxString& sub) {
+size_t count = 0;
+for (size_t pos = text.find(sub); pos!=wxString::npos; pos = text.find(sub, pos + sub.size())) count++;
+return count;
 }
 
 static bool CompareCaseInsensitive (const wxString& a, const wxString& b) {
@@ -304,6 +359,54 @@ text += format("[{} matches in {} files]\n", lines.size(), nFiles);
 return ToolResult::Ok(text);
 }
 
+static ToolResult ToolEditFile (const json& args, const ToolContext& context) {
+std::string path = GetStringArg(args, "path"), error;
+wxString oldText = U(GetStringArg(args, "old_text")), newText = U(GetStringArg(args, "new_text"));
+bool replaceAll = GetBoolArg(args, "replace_all", false);
+if (path.empty()) return ToolResult::Error("path is required.");
+if (oldText.empty()) return ToolResult::Error("old_text is required. Use write_file to create a file or to replace its whole content.");
+wxString file;
+if (!context.ResolvePath(path, file, error)) return ToolResult::Error(error);
+std::string rel = context.GetRelativePath(file);
+if (wxDirExists(file)) return ToolResult::Error(format("{} is a directory. Give the path of a file.", rel));
+bool open = FindOpenEditor(file);
+if (!open && !wxFileExists(file)) return ToolResult::Error(format("File not found: {}. Use write_file to create a new file.", rel));
+if (!open && IsBinaryFile(file)) return ToolResult::Error(format("{} is a binary file and can't be edited as text.", rel));
+wxString text;
+if (!ReadTextFile(file, text)) return ToolResult::Error(format("Unable to read {}.", rel));
+oldText.Replace("\r\n", "\n");
+newText.Replace("\r\n", "\n");
+if (oldText==newText) return ToolResult::Error("old_text and new_text are identical: nothing to change.");
+size_t count = CountOccurrences(text, oldText);
+if (count==0) return ToolResult::Error(format("old_text not found in {}. It must match the file content exactly, including whitespace and indentation, without line numbers. Read the file again with read_file: it may have changed.", rel));
+if (count>1 && !replaceAll) return ToolResult::Error(format("old_text found {} times in {}. Include more surrounding lines to make it unique, or set replace_all to true to replace all occurrences.", count, rel));
+auto answer = context.Confirm(U(format(GetTranslation("AgentConfirmEdit"), rel, U(GetWriteLocation(file)))));
+if (answer!=ToolConfirmation::Allow) return RefusedResult(answer);
+text.Replace(oldText, newText, replaceAll);
+if (!WriteTextFile(file, text)) return ToolResult::Error(format("Unable to write {}.", rel));
+return ToolResult::Ok(format("Edited {}: {} replacement{}.", rel, count, count>1? "s" : ""));
+}
+
+static ToolResult ToolWriteFile (const json& args, const ToolContext& context) {
+std::string path = GetStringArg(args, "path"), error;
+if (path.empty()) return ToolResult::Error("path is required.");
+if (args.find("content")==args.end()) return ToolResult::Error("content is required.");
+wxString content = U(GetStringArg(args, "content"));
+wxString file;
+if (!context.ResolvePath(path, file, error)) return ToolResult::Error(error);
+std::string rel = context.GetRelativePath(file);
+if (rel.empty() || wxDirExists(file)) return ToolResult::Error(format("{} is a directory. Give the path of a file.", rel.empty()? "/" : rel));
+content.Replace("\r\n", "\n");
+bool exists = FindOpenEditor(file) || wxFileExists(file);
+std::string message = exists? format(GetTranslation("AgentConfirmOverwrite"), rel, U(GetWriteLocation(file))) : format(GetTranslation("AgentConfirmCreate"), rel);
+auto answer = context.Confirm(U(message));
+if (answer!=ToolConfirmation::Allow) return RefusedResult(answer);
+if (!WriteTextFile(file, content)) return ToolResult::Error(format("Unable to write {}.", rel));
+size_t lines = std::count(content.begin(), content.end(), '\n');
+if (!content.empty() && content.Last()!='\n') lines++;
+return ToolResult::Ok(format("Wrote {}: {} line{}.", rel, lines, lines>1? "s" : ""));
+}
+
 static void RegisterBuiltinTools (std::vector<AgentTool>& tools) {
 tools.push_back({ "list_files",
 "List files and directories in the workspace. Directories end with '/'. Paths are relative to the workspace root and use '/' as separator. Not recursive unless recursive is true or the pattern contains '**'.",
@@ -341,6 +444,32 @@ json::parse(R"({
 "required": ["pattern"]
 })"),
 ToolSearchFiles
+});
+tools.push_back({ "edit_file",
+"Edit a text file of the workspace by replacing an exact text with a new one. old_text must match the file content exactly, including whitespace and indentation, and must appear only once unless replace_all is true. Read the file with read_file before editing it, and don't include line numbers in old_text.",
+json::parse(R"({
+"type": "object",
+"properties": {
+"path": { "type": "string", "description": "Path of the file, relative to the workspace root." },
+"old_text": { "type": "string", "description": "Exact text to replace. Include enough surrounding lines to make it unique in the file." },
+"new_text": { "type": "string", "description": "Text replacing old_text. Empty to delete old_text." },
+"replace_all": { "type": "boolean", "description": "Replace all occurrences of old_text instead of requiring a unique one. Default: false." }
+},
+"required": ["path", "old_text", "new_text"]
+})"),
+ToolEditFile, true
+});
+tools.push_back({ "write_file",
+"Create a text file in the workspace, or replace the whole content of an existing file. Missing directories are created. To change only a part of an existing file, prefer edit_file.",
+json::parse(R"({
+"type": "object",
+"properties": {
+"path": { "type": "string", "description": "Path of the file, relative to the workspace root." },
+"content": { "type": "string", "description": "Complete content of the file." }
+},
+"required": ["path", "content"]
+})"),
+ToolWriteFile, true
 });
 }
 
@@ -386,6 +515,7 @@ std::string names;
 for (auto& t: GetAll()) names += (names.empty()? "" : ", ") + t.name;
 return ToolResult::Error(format("Unknown tool: {}. Available tools: {}", name, names));
 }
+println("Agent tool call: {} {}", name, arguments);
 json args;
 try {
 args = arguments.empty()? json::object() : json::parse(arguments);
@@ -405,5 +535,6 @@ size_t cut = max;
 while (cut>0 && (static_cast<unsigned char>(result.text[cut]) & 0xC0)==0x80) cut--;
 result.text = result.text.substr(0, cut) + "\n[Truncated: result too long.]\n";
 }
+println("Agent tool result: {}", result.text.substr(0, result.text.find('\n')));
 return result;
 }

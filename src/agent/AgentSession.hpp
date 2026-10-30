@@ -27,6 +27,7 @@ bool busy = false;
 std::shared_ptr<bool> alive;
 ResponseCallback pendingCallback;
 ToolCallCallback pendingToolCallback;
+ToolContext::ConfirmCallback confirmCallback;
 size_t exchangeStart = 0;
 int toolIterations = 0;
 
@@ -47,6 +48,7 @@ const wxString& GetRoot () const { return root; }
 const std::string& GetModel () const { return model; }
 void SetModel (const std::string& m) { model = m; }
 bool IsBusy () const { return busy; }
+void SetConfirmCallback (const ToolContext::ConfirmCallback& callback) { confirmCallback = callback; }
 
 void Clear ();
 bool UndoLastExchange (wxString* prompt = nullptr);

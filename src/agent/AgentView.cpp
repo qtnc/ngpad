@@ -15,11 +15,23 @@ AgentView::~AgentView () {}
 
 void AgentView::SetAgent (const AgentConfig& config, const wxString& root) {
 session = std::make_unique<AgentSession>(config, root);
+session->SetConfirmCallback([this](const wxString& message){
+wxMessageDialog dlg(GetFrame(), message, U(session->GetConfig().name), wxYES_NO | wxCANCEL | wxICON_QUESTION);
+dlg.SetYesNoCancelLabels(MSG("AgentAllow"), MSG("AgentDeny"), MSG("AgentStop"));
+switch(dlg.ShowModal()){
+case wxID_YES: return ToolConfirmation::Allow;
+case wxID_NO: return ToolConfirmation::Deny;
+default: return ToolConfirmation::Stop;
+}});
 }
 
 static wxString FormatToolCall (const std::string& name, const nlohmann::json& args, const ToolResult& result) {
 wxString argText;
+// For tools modifying files, other arguments can be the whole content of a file: only the path is shown
+auto tool = AgentTools::Find(name);
+bool pathOnly = tool && tool->modifiesFiles;
 if (args.is_object()) for (auto& [key, value]: args.items()) {
+if (pathOnly && key!="path") continue;
 if (!argText.empty()) argText << ", ";
 argText << U(key) << ": " << U(value.is_string()? value.get<std::string>() : value.dump());
 }

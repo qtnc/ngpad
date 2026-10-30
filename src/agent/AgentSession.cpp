@@ -202,6 +202,7 @@ if (!calls[i].contains("id") || !calls[i]["id"].is_string()) calls[i]["id"] = fo
 std::string content = message.contains("content") && message["content"].is_string()? message["content"].get<std::string>() : "";
 messages.push_back({ {"role", "assistant"}, {"content", content}, {"tool_calls", calls} });
 ToolContext context(root, config.limits);
+context.confirm = confirmCallback;
 for (auto& call: calls) {
 std::string name, arguments;
 if (call.contains("function") && call["function"].is_object()) {
@@ -216,6 +217,11 @@ if (pendingToolCallback) {
 json args;
 try { args = json::parse(arguments); } catch (...) { args = arguments; }
 pendingToolCallback(name, args, result);
+}
+if (result.stop) {
+// Remaining tool calls are abandoned along with the whole exchange
+FailExchange(GetTranslation("AgentStoppedByUser"));
+return;
 }
 messages.push_back({ {"role", "tool"}, {"tool_call_id", call["id"]}, {"name", name}, {"content", result.text} });
 }

@@ -449,7 +449,7 @@ return true;
 
 bool SaveFile (const wxString& filename, wxString& text, const Properties& properties) {
 if (properties.get("trim_trailing_whitespace", false)) wxRegEx("\\s*$", wxRE_NEWLINE) .Replace(&text, "");
-if (properties.get("insert_final_newline", false) && text[text.size() -1]!='\n') text += '\n';
+if (properties.get("insert_final_newline", false) && !text.empty() && text[text.size() -1]!='\n') text += '\n';
 AdjustLineEnding(text, GetLineEnding(properties));
 wxFile file(filename, wxFile::OpenMode::write);
 if (!file.IsOpened()) return false;
