@@ -13,6 +13,7 @@ int GetLineEnding () const;
 void SetLineEnding (int lineEnding);
 int GetIndentType () const;
 void SetIndentType (int indentType);
+void ApplyDefaultFormat ();
 
 void PushUndoState (struct wxCommand* cmd, bool tryJoin);
 void Modify (bool modified = true) override;

@@ -139,8 +139,9 @@ if (!menubar->FindItem(IDM_ENCODING)) return;
 int encoding = GetEncodingIndex(doc->GetEncoding());
 int lineEnding = doc->GetLineEnding();
 int indentType = doc->GetIndentType();
-menubar->Check( encoding<0? IDM_ENCODING_OTHER : IDM_ENCODING + encoding, true);
-menubar->Check( lineEnding<0? IDM_LINE_ENDING_OTHER : IDM_LINE_ENDING + lineEnding, true);
+// The "Other..." items aren't checkable, and encodings outside the menu have no item until chosen in the dialog
+if (encoding>=0 && menubar->FindItem(IDM_ENCODING + encoding)) menubar->Check(IDM_ENCODING + encoding, true);
+if (lineEnding>=0 && menubar->FindItem(IDM_LINE_ENDING + lineEnding)) menubar->Check(IDM_LINE_ENDING + lineEnding, true);
 menubar->Check(IDM_INDENT + std::max(indentType, 0), true);
 menubar->Check(IDM_READONLY, !editor->IsEditable());
 }

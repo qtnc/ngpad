@@ -391,6 +391,7 @@ return wxFONTENCODING_UTF8;
 
 int DetectLineEnding (const wxString& text) {
 auto i = text.find_first_of(LINE_ENDING_CHARS);
+if (i==std::string::npos) return -1;
 if (text[i]=='\r' && i<text.size() -1 && text[i+1]=='\n') return LE_CRLF;
 else return LINE_ENDING_CHARS.find(text[i]) +1;
 }
@@ -437,12 +438,18 @@ file.Write(text, enc.GetCodec());
 bool LoadFile (const wxString& filename, wxString& text, Properties& properties) {
 wxFile file(filename, wxFile::OpenMode::read);
 if (!file.IsOpened()) return false;
+auto& config = wxGetApp().GetConfig();
 int encoding = GetEncoding(properties);
-if (encoding==wxFONTENCODING_DEFAULT)  encoding = DetectEncoding(file);
+// An empty file gives no clue, so it gets the same defaults as a new one
+if (encoding==wxFONTENCODING_DEFAULT) encoding = file.Length()>0? DetectEncoding(file) : GetEncodingFromName(config.get("default_charset", "utf-8"));
 if (!ReadAndDecode(file, text, encoding)) return false;
 SetEncoding(properties, encoding);
-if (GetLineEnding(properties)<0) SetLineEnding(properties, DetectLineEnding(text));
-if (GetIndentType(properties)==0) SetIndentType(properties, DetectIndentType(text));
+if (GetLineEnding(properties)<0) {
+int lineEnding = DetectLineEnding(text);
+if (lineEnding<0) lineEnding = GetLineEndingFromName(config.get("default_line_ending", "crlf"));
+SetLineEnding(properties, lineEnding);
+}
+if (GetIndentType(properties)==0 && !text.empty()) SetIndentType(properties, DetectIndentType(text));
 AdjustLineEnding(text, LE_LF);
 return true;
 }

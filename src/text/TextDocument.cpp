@@ -85,9 +85,14 @@ else proc->Store(cmd);
 bool TextDocument::DoOpenDocument (const wxString& filename) {
 auto editor = GetEditor();
 if (!editor) return false;
-if (!wxFileExists(filename)) return true;
+// A file that doesn't exist yet is opened empty, and created on first save
+if (!wxFileExists(filename)) {
+ApplyDefaultFormat();
+return true;
+}
 wxString text;
 if (!LoadFile(filename, text, properties)) return false;
+ApplyDefaultFormat();
 long start, end;
 editor->GetSelection(&start, &end);
 editor->SetValue(text);
@@ -105,10 +110,8 @@ Modify(false);
 return true;
 }
 
-bool TextDocument::OnNewDocument () {
-if (!AbstractDocument::OnNewDocument()) return false;
-auto& app = wxGetApp();
-Properties& config = app.GetConfig();
+void TextDocument::ApplyDefaultFormat () {
+Properties& config = wxGetApp().GetConfig();
 if (GetEncoding()==wxFONTENCODING_DEFAULT) SetEncoding(GetEncodingFromName(config.get("default_charset", "utf-8")));
 if (GetLineEnding()<0) SetLineEnding(GetLineEndingFromName(config.get("default_line_ending", "crlf")));
 if (GetIndentType()==0) {
@@ -116,6 +119,11 @@ bool tab = config.get("default_indent_style", "space")=="tab";
 int size = (tab? -1 : 1) * config.get("default_indent_size", 4);
 SetIndentType(size);
 }
+}
+
+bool TextDocument::OnNewDocument () {
+if (!AbstractDocument::OnNewDocument()) return false;
+ApplyDefaultFormat();
 UpdateAllViews();
 return true;
 }
