@@ -12,10 +12,10 @@ AgentDialog::AgentDialog (wxWindow* parent, const wxString& title, const AgentCo
 wxDialog(parent, wxID_ANY, title, wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMAXIMIZE_BOX | wxDIALOG_NO_PARENT)
 {
 session = std::make_unique<AgentSession>(config, root);
-session->SetConfirmCallback([this](const wxString& message){
+session->SetConfirmCallback([this](const wxString& message, bool denyByDefault){
 // The dialog may be hidden while the agent is working
 ShowAgent();
-wxMessageDialog dlg(this, message, U(session->GetConfig().name), wxYES_NO | wxCANCEL | wxICON_QUESTION);
+wxMessageDialog dlg(this, message, U(session->GetConfig().name), wxYES_NO | wxCANCEL | (denyByDefault? wxNO_DEFAULT : 0) | wxICON_QUESTION);
 dlg.SetYesNoCancelLabels(MSG("AgentAllow"), MSG("AgentDeny"), MSG("AgentStop"));
 switch(dlg.ShowModal()){
 case wxID_YES: return ToolConfirmation::Allow;
@@ -59,11 +59,11 @@ editor->SetFocus();
 
 static wxString FormatToolCall (const std::string& name, const nlohmann::json& args, const ToolResult& result) {
 wxString argText;
-// For tools modifying files, other arguments can be the whole content of a file: only the path is shown
+// For tools modifying files, other arguments can be the whole content of a file: only the paths are shown
 auto tool = AgentTools::Find(name);
 bool pathOnly = tool && tool->modifiesFiles;
 if (args.is_object()) for (auto& [key, value]: args.items()) {
-if (pathOnly && key!="path") continue;
+if (pathOnly && key!="path" && key!="new_path") continue;
 if (!argText.empty()) argText << ", ";
 argText << U(key) << ": " << U(value.is_string()? value.get<std::string>() : value.dump());
 }

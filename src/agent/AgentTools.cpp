@@ -85,8 +85,8 @@ for (auto& e: excludedExtensions) if (e.IsSameAs(ext, false)) return true;
 return false;
 }
 
-ToolConfirmation ToolContext::Confirm (const wxString& message) const {
-return confirm? confirm(message) : ToolConfirmation::Deny;
+ToolConfirmation ToolContext::Confirm (const wxString& message, bool denyByDefault) const {
+return confirm? confirm(message, denyByDefault) : ToolConfirmation::Deny;
 }
 
 static std::string GetStringArg (const json& args, const std::string& key, const std::string& def = "") {
@@ -407,6 +407,169 @@ if (!content.empty() && content.Last()!='\n') lines++;
 return ToolResult::Ok(format("Wrote {}: {} line{}.", rel, lines, lines>1? "s" : ""));
 }
 
+static wxString NormalizePath (const wxString& path) {
+wxFileName fn(path);
+fn.Normalize(wxPATH_NORM_DOTS | wxPATH_NORM_ABSOLUTE);
+return fn.GetFullPath();
+}
+
+// Open documents designating the given file, or located in the given directory
+static std::vector<AbstractDocument*> FindOpenDocuments (const wxString& path, bool isDir) {
+std::vector<AbstractDocument*> docs;
+wxString lowerPath = path.Lower(), lowerDir = lowerPath + wxFILE_SEP_PATH;
+for (auto wxdoc: wxGetApp().GetDocManager()->GetDocumentsVector()) {
+if (wxdoc->GetFilename().empty()) continue;
+wxString filename = NormalizePath(wxdoc->GetFilename()).Lower();
+if (filename==lowerPath || (isDir && filename.StartsWith(lowerDir))) docs.push_back(static_cast<AbstractDocument*>(wxdoc));
+}
+return docs;
+}
+
+// Close documents without asking to save them
+static void CloseDocuments (const std::vector<AbstractDocument*>& docs) {
+if (docs.empty()) return;
+auto& app = wxGetApp();
+auto manager = app.GetDocManager();
+// Closing the last document may exit the application
+if (manager->GetDocuments().GetCount()<=docs.size()) app.CreateNewEmptyDocument();
+for (auto doc: docs) {
+doc->Modify(false);
+manager->CloseDocument(doc, true);
+}
+app.UpdateTitle();
+}
+
+static std::string DescribeCursorAndSelection (wxTextCtrlIface* editor, int maxLines) {
+long x = 0, y = 0, start = 0, end = 0;
+editor->PositionToXY(editor->GetInsertionPoint(), &x, &y);
+std::string result = format("Cursor: line {}, column {}\n", y+1, x+1);
+editor->GetSelection(&start, &end);
+if (start==end) return result + "Selection: none\n";
+long sx = 0, sy = 0, ex = 0, ey = 0;
+editor->PositionToXY(start, &sx, &sy);
+editor->PositionToXY(end, &ex, &ey);
+result += format("Selection: line {}, column {} to line {}, column {}:\n", sy+1, sx+1, ey+1, ex+1);
+wxString text = editor->GetRange(start, end);
+text.Replace("\r\n", "\n");
+auto lines = wxSplit(text, '\n', 0);
+for (int i=0, n=lines.size(); i<n && i<maxLines; i++) result += U(lines[i]) + "\n";
+if (static_cast<int>(lines.size())>maxLines) result += format("[Selection truncated at {} lines. Use read_file to read the rest.]\n", maxLines);
+return result;
+}
+
+static ToolResult ToolGetEditorContext (const json&, const ToolContext& context) {
+auto doc = wxGetApp().GetCurrentDocument();
+if (!doc) return ToolResult::Ok("No active document found in the editor.");
+wxString filename = doc->GetFilename(), file;
+std::string error;
+if (filename.empty() || !doc->GetDocumentSaved()) return ToolResult::Ok("The active document is untitled: it isn't saved in a file of the workspace.");
+if (!context.ResolvePath(U(filename), file, error)) return ToolResult::Ok("The active document is outside the workspace.");
+std::string result = format("Active file: {}\n", context.GetRelativePath(file));
+result += format("Unsaved changes: {}\n", doc->IsModified()? "yes" : "no");
+if (auto editor = doc->GetEditor()) result += DescribeCursorAndSelection(editor, context.limits.readMaxLines);
+std::vector<std::string> others;
+for (auto wxdoc: wxGetApp().GetDocManager()->GetDocumentsVector()) {
+if (wxdoc==doc || wxdoc->GetFilename().empty() || !wxdoc->GetDocumentSaved()) continue;
+wxString other;
+if (!context.ResolvePath(U(wxdoc->GetFilename()), other, error)) continue;
+others.push_back(context.GetRelativePath(other) + (wxdoc->IsModified()? " (unsaved changes)" : ""));
+}
+std::sort(others.begin(), others.end());
+result += others.empty()? "Other open files: none\n" : "Other open files:\n";
+for (auto& o: others) result += o + "\n";
+return ToolResult::Ok(result);
+}
+
+// Subset of the quick jump syntax: Lua evaluation, commands and relative moves are excluded
+static bool IsAllowedPosition (const wxString& position) {
+static wxRegEx reg("^(\\[?\\d+([,:]\\d+)?\\]?|\\d+([,:]\\d+)?-\\d+([,:]\\d+)?|/[^/]+/[is]*|#.+)$");
+return reg.Matches(position);
+}
+
+static ToolResult ToolOpenInEditor (const json& args, const ToolContext& context) {
+std::string path = GetStringArg(args, "path"), position = GetStringArg(args, "position"), error;
+if (path.empty()) return ToolResult::Error("path is required.");
+wxString file;
+if (!context.ResolvePath(path, file, error)) return ToolResult::Error(error);
+std::string rel = context.GetRelativePath(file);
+if (rel.empty() || wxDirExists(file)) return ToolResult::Error(format("{} is a directory. Give the path of a file.", rel.empty()? "/" : rel));
+if (!FindOpenEditor(file) && !wxFileExists(file)) return ToolResult::Error(format("File not found: {}. Use list_files to see available files.", rel));
+wxString pos = U(position);
+pos.Trim(true).Trim(false);
+if (!pos.empty() && !IsAllowedPosition(pos)) return ToolResult::Error(format("Invalid position: {}. Use a line such as '12', a line and column such as '12:5', a range such as '12-15' or '12:5-15:20', '/regex/' to find a text, or '#name' to go to a marker.", position));
+auto& app = wxGetApp();
+auto doc = app.OpenOrCreateDocument(file);
+if (!doc) return ToolResult::Error(format("Unable to open {}.", rel));
+doc->Activate();
+if (!pos.empty()) doc->DoQuickJump(pos);
+app.UpdateTitle();
+std::string result = format("Opened {} in the editor.\n", rel);
+if (auto editor = doc->GetEditor()) result += DescribeCursorAndSelection(editor, context.limits.readMaxLines);
+return ToolResult::Ok(result);
+}
+
+static ToolResult ToolMoveFile (const json& args, const ToolContext& context) {
+std::string path = GetStringArg(args, "path"), newPath = GetStringArg(args, "new_path"), error;
+if (path.empty()) return ToolResult::Error("path is required.");
+if (newPath.empty()) return ToolResult::Error("new_path is required.");
+wxString source, dest;
+if (!context.ResolvePath(path, source, error) || !context.ResolvePath(newPath, dest, error)) return ToolResult::Error(error);
+std::string rel = context.GetRelativePath(source), newRel = context.GetRelativePath(dest);
+if (rel.empty()) return ToolResult::Error("The workspace root can't be moved.");
+if (newRel.empty()) return ToolResult::Error("new_path must be the path of a file or directory, not the workspace root.");
+bool isDir = wxDirExists(source);
+if (!isDir && !wxFileExists(source)) return ToolResult::Error(format("File or directory not found: {}. Use list_files to see available files.", rel));
+// Only the case changes: the destination exists because it is the source itself
+bool sameName = source.IsSameAs(dest, false);
+if (source==dest) return ToolResult::Error("path and new_path designate the same file.");
+if (!sameName && (wxFileExists(dest) || wxDirExists(dest))) return ToolResult::Error(format("{} already exists. Choose another destination, or delete it first with delete_file.", newRel));
+if (isDir && dest.Lower().StartsWith(source.Lower() + wxFILE_SEP_PATH)) return ToolResult::Error("A directory can't be moved into itself.");
+auto answer = context.Confirm(U(format(GetTranslation(isDir? "AgentConfirmMoveDir" : "AgentConfirmMoveFile"), rel, newRel)));
+if (answer!=ToolConfirmation::Allow) return RefusedResult(answer);
+auto docs = FindOpenDocuments(source, isDir);
+{
+wxLogNull noLog;
+wxFileName::Mkdir(wxFileName(dest).GetPath(), wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
+if (!wxRenameFile(source, dest, sameName)) return ToolResult::Error(format("Unable to move {} to {}.", rel, newRel));
+}
+// Open documents follow the moved files, with their unsaved changes
+for (auto doc: docs) doc->SetFilename(dest + NormalizePath(doc->GetFilename()).Mid(source.size()), true);
+if (!docs.empty()) wxGetApp().UpdateTitle();
+return ToolResult::Ok(format("Moved {} to {}.", rel, newRel));
+}
+
+static ToolResult ToolDeleteFile (const json& args, const ToolContext& context) {
+std::string path = GetStringArg(args, "path"), error;
+if (path.empty()) return ToolResult::Error("path is required.");
+wxString file;
+if (!context.ResolvePath(path, file, error)) return ToolResult::Error(error);
+std::string rel = context.GetRelativePath(file);
+if (rel.empty()) return ToolResult::Error("The workspace root can't be deleted.");
+bool isDir = wxDirExists(file);
+if (!isDir && !wxFileExists(file)) return ToolResult::Error(format("File or directory not found: {}. Use list_files to see available files.", rel));
+#ifdef wxHAS_MOVE_TO_TRASH
+std::string message;
+if (isDir) {
+wxArrayString files;
+wxLogNull noLog;
+wxDir::GetAllFiles(file, &files, wxEmptyString, wxDIR_DEFAULT);
+message = format(GetTranslation("AgentConfirmDeleteDir"), rel, files.size());
+}
+else message = format(GetTranslation("AgentConfirmDeleteFile"), rel);
+auto docs = FindOpenDocuments(file, isDir);
+size_t unsaved = std::count_if(docs.begin(), docs.end(), [](AbstractDocument* d){ return d->IsModified(); });
+if (unsaved) message += " " + format(GetTranslation("AgentConfirmDeleteUnsaved"), docs.size(), unsaved);
+else if (!docs.empty()) message += " " + format(GetTranslation("AgentConfirmDeleteOpen"), docs.size());
+auto answer = context.Confirm(U(message), true);
+if (answer!=ToolConfirmation::Allow) return RefusedResult(answer);
+if (!wxMoveToTrash(file)) return ToolResult::Error(format("Unable to delete {}.", rel));
+CloseDocuments(docs);
+return ToolResult::Ok(format("Deleted {} (moved to the trash).", rel));
+#else
+return ToolResult::Error("Deleting files isn't supported on this platform.");
+#endif
+}
+
 static void RegisterBuiltinTools (std::vector<AgentTool>& tools) {
 tools.push_back({ "list_files",
 "List files and directories in the workspace. Directories end with '/'. Paths are relative to the workspace root and use '/' as separator. Not recursive unless recursive is true or the pattern contains '**'.",
@@ -470,6 +633,49 @@ json::parse(R"({
 "required": ["path", "content"]
 })"),
 ToolWriteFile, true
+});
+tools.push_back({ "get_editor_context",
+"Get what the user is looking at in the text editor: the active file, the cursor position, the selected text and the other open files. Call it when the user refers to the current file, the selection, the cursor or 'here'.",
+json::parse(R"({
+"type": "object",
+"properties": {}
+})"),
+ToolGetEditorContext
+});
+tools.push_back({ "open_in_editor",
+"Open a file of the workspace in the text editor so that the user can see it, optionally moving the cursor or selecting a passage. Returns the resulting cursor position and selection.",
+json::parse(R"({
+"type": "object",
+"properties": {
+"path": { "type": "string", "description": "Path of the file, relative to the workspace root." },
+"position": { "type": "string", "description": "Where to move the cursor: a line '12', a line and column '12:5', a range of lines to select '12-15', a precise passage to select '12:5-15:20', '/regex/' to move to a match of a regular expression (without '/' inside; '/regex/i' to ignore case), or '#name' to move to a marker such as a function. Default: don't move the cursor." }
+},
+"required": ["path"]
+})"),
+ToolOpenInEditor
+});
+tools.push_back({ "move_file",
+"Move or rename a file or directory of the workspace. Missing directories of the destination are created. Fails if the destination already exists.",
+json::parse(R"({
+"type": "object",
+"properties": {
+"path": { "type": "string", "description": "Current path of the file or directory, relative to the workspace root." },
+"new_path": { "type": "string", "description": "New path, relative to the workspace root." }
+},
+"required": ["path", "new_path"]
+})"),
+ToolMoveFile, true
+});
+tools.push_back({ "delete_file",
+"Delete a file or directory of the workspace, with all its content. It is moved to the trash.",
+json::parse(R"({
+"type": "object",
+"properties": {
+"path": { "type": "string", "description": "Path of the file or directory, relative to the workspace root." }
+},
+"required": ["path"]
+})"),
+ToolDeleteFile, true
 });
 }
 

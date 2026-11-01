@@ -114,7 +114,28 @@ Communs aux deux outils d'écriture :
 - Confirmation : `wxMessageDialog` Autoriser / Refuser / Arrêter l'agent ; le message donne le fichier et l'endroit (éditeur sans enregistrer / disque). Pas de `SayText`. Refuser → erreur renvoyée au modèle, la boucle continue. Arrêter (ou Échap dans la confirmation) → comme une annulation : l'échange est retiré de l'historique, les appels restants abandonnés (les modifications déjà autorisées restent dans les fichiers).
 - Dans la conversation, seul l'argument `path` est affiché (`AgentTool::modifiesFiles`). Chaque appel d'outil est écrit en entier dans `debug.txt` via `println`.
 
-Plus tard : remplacement multifichier (`ReplaceAllMultiple`, avec confirmation), `get_editor_context` (fichier actif, ligne, sélection), `open_in_editor(path, line)`, déplacer / supprimer (confirmation), exécuter une commande (beaucoup plus tard).
+**get_editor_context()**
+- Outil seul, pas d'injection automatique dans les messages (décision : éviter le bruit dans l'historique ; VS Code / Cursor injectent le fichier actif mais de façon visible et désactivable). Une phrase du prompt système invite à l'appeler quand l'utilisateur parle du fichier courant, de la sélection, du curseur ou de « ici » (seulement si l'outil est actif).
+- Retour : `Active file:`, `Unsaved changes: yes/no`, `Cursor: line L, column C`, `Selection: none` ou les bornes suivies du texte sélectionné (tronqué à `readMaxLines` lignes), puis les autres fichiers ouverts sous la racine (`(unsaved changes)` le cas échéant).
+- Document sans nom : « untitled » ; hors de la racine : « outside the workspace », sans chemin ni contenu.
+
+**open_in_editor(path, position?)**
+- Ouvre (ou active) le fichier, puis `TextDocument::DoQuickJump(position)`. Pas de confirmation. Le focus n'est pas géré spécialement : c'est l'éditeur qui décide (à ajuster si ça gêne).
+- `position` est un **sous-ensemble** de la syntaxe du saut rapide (`IsAllowedPosition`) : `12`, `12:5`, `[12,5]`, `12-15`, `12:5-15:20`, `/regex/` (sans `/` dans l'expression, options `i`/`s` tolérées), `#marqueur`. Exclus volontairement : `=expr` (évaluation Lua qui écrit dans le document), `$commande`, `+n`/`-n`, `^^n`, et la partie `?clé=valeur` (on appelle directement le `DoQuickJump` du document, pas celui d'`App`).
+- Retour : `Opened <path> in the editor.` puis curseur et sélection résultants, ce qui permet au modèle de savoir si une recherche `/regex/` a déplacé le curseur (en cas d'échec, le saut rapide ne fait qu'un bip).
+
+**move_file(path, new_path)**
+- Fichier ou répertoire. Destination existante refusée (sauf simple changement de casse). Répertoires manquants de la destination créés. Déplacement d'un répertoire dans lui-même refusé, racine refusée.
+- Les onglets ouverts suivent (`SetFilename`), y compris avec des modifications non enregistrées.
+
+**delete_file(path)**
+- Fichier ou répertoire (avec tout son contenu), toujours mis à la corbeille via `wxMoveToTrash` (wxWidgets ≥ 3.3, Windows / macOS / GTK, macro `wxHAS_MOVE_TO_TRASH` ; sinon l'outil renvoie une erreur). Racine refusée.
+- Les onglets concernés sont fermés sans demander d'enregistrer ; la confirmation indique leur nombre et combien ont des modifications non enregistrées qui seront perdues. Si cela fermerait tous les documents, un document vide est créé d'abord (sinon `exit_on_last_close` fermerait l'application, et l'agent avec).
+- Confirmation avec **Refuser** comme bouton par défaut (`ToolContext::Confirm(message, denyByDefault)`).
+
+`create_directory` abandonné : `write_file` crée déjà les répertoires manquants ; un répertoire vide pourra se créer avec l'outil d'exécution de commande.
+
+Plus tard : remplacement multifichier (`ReplaceAllMultiple`, avec confirmation), exécuter une commande / un script Lua. Option utilisateur pour choisir corbeille ou suppression définitive (où et comment : à décider).
 
 ## Commandes et menus prévus (étape 2)
 
@@ -174,3 +195,10 @@ Menu contextuel (pas de barre de menus dans le dialogue) : copier, tout sélecti
   - Enregistrement de la conversation : Ctrl+S, menu contextuel ou `/save` (UTF-8, `.md` par défaut, proposé dans la racine).
   - F6 (`IDM_SWITCH_PANE`) ne sert qu'à passer de l'éditeur au panneau latéral dans `TextView` : rien pour passer d'une fenêtre flottante à l'autre. Le dialogue apparaît dans la barre des tâches, donc Alt+Tab fonctionne.
 - [ ] Étape 5
+  - [x] `get_editor_context`, `open_in_editor`, `move_file`, `delete_file` (compilés ; à tester dans l'interface).
+  - Dans la conversation, les outils qui modifient des fichiers n'affichent que `path` et `new_path`.
+  - À vérifier en test : en mode SDI/MDI, `GetCurrentDocument()` pourrait être nul quand le dialogue de l'agent a le focus (la fenêtre enfant désactive sa vue). En mode onglets (défaut) ça devrait aller. Sinon, mémoriser le dernier document actif.
+    Si aucun document actif n'est trouvé, `get_editor_context` le dit simplement (pas d'erreur) et la boucle continue.
+  - Corrigé dans le saut rapide (`qjFind`) : l'option `i` rendait la recherche sensible à la casse (`FRI_ICASE` = sensible). Désormais `/x/` est sensible et `/x/i` insensible, comme dans `doc/quickJump.md`.
+  - [ ] Remplacement multifichier
+  - [ ] Exécution de commande / script Lua

@@ -87,6 +87,7 @@ std::string systemPrompt = config.systemPrompt;
 if (!tools.empty()) {
 if (!systemPrompt.empty()) systemPrompt += "\n\n";
 systemPrompt += format("The workspace root is the folder '{}'. All file paths are relative to it and use '/' as separator.", U(GetWorkspaceName(root)));
+if (config.IsToolEnabled("get_editor_context")) systemPrompt += " The user works in a text editor: when they refer to the current file, the selection, the cursor or 'here', call get_editor_context.";
 body["tools"] = tools;
 }
 json msgs = json::array();

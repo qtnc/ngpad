@@ -7,7 +7,7 @@
 enum class ToolConfirmation { Allow, Deny, Stop };
 
 struct ToolContext {
-typedef std::function<ToolConfirmation(const wxString& message)> ConfirmCallback;
+typedef std::function<ToolConfirmation(const wxString& message, bool denyByDefault)> ConfirmCallback;
 wxString root, rootDir; // rootDir: normalized, with trailing separator
 const AgentLimits& limits;
 std::vector<wxString> ignoredDirs, excludedExtensions;
@@ -18,7 +18,7 @@ bool ResolvePath (const std::string& input, wxString& absPath, std::string& erro
 std::string GetRelativePath (const wxString& absPath, bool isDir = false) const;
 bool IsIgnoredDir (const wxString& name) const;
 bool IsExcludedFile (const wxString& name) const;
-ToolConfirmation Confirm (const wxString& message) const;
+ToolConfirmation Confirm (const wxString& message, bool denyByDefault = false) const;
 };
 
 struct ToolResult {

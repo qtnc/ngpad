@@ -229,7 +229,8 @@ auto p1 = cmd.find('/', 1);
 if (p1==std::string::npos) return false;
 wxString find = cmd.substr(1, p1 -1);
 int flags = FRI_REGEX;
-if (cmd.find('i', p1) != std::string::npos) flags |= FRI_ICASE;
+// FRI_ICASE means case sensitive
+if (cmd.find('i', p1) == std::string::npos) flags |= FRI_ICASE;
 if (cmd.find('s', p1) == std::string::npos) flags |= FRI_RE_DOTALL;
 BellIfFalse(view->FindReplace(FindReplaceInfo(flags, find)));
 return true;
