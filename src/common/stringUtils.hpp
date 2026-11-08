@@ -71,7 +71,7 @@ replace_all(str, "\\r", "\r");
 replace_all(str, "\1", "\\");
 }
 
-template <class T> void positionToXY (const T& str, size_t pos, size_t& x, size_t& y) {
+template <class T, class S1, class S2> void positionToXY (const T& str, S1 pos, S2& x, S2& y) {
 y = std::count(str.begin(), str.begin() + pos, '\n');
 auto l = str.rfind('\n', pos? pos -1 : 0);
 x = l==std::string::npos? pos : pos-l -1;

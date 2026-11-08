@@ -9,7 +9,6 @@
 #include <wx/regex.h>
 #include <wx/stc/stc.h>
 
-
 struct TextCtrlTextEditor: TextEditorCtrl<wxTextCtrl> {
 TextCtrlTextEditor (TextView* view, wxWindow* parent, int id, const wxString& text, const wxPoint& pos, const wxSize& size, long flags);
 wxControl* GetControl () override { return this; }
@@ -446,9 +445,9 @@ PositionToXY(end, &x, &y);
 end = xyToPosition(text, x, y);
 if (!df.Reset(text) || !(marker = df.FindPreviousMarker(end, name))) return false;
 start = marker->start; end = marker->end;
-positionToXY(text, start, reinterpret_cast<size_t&>(x), reinterpret_cast<size_t&>(y));
+positionToXY(text, start, x, y);
 start = XYToPosition(x, y);
-positionToXY(text, end, reinterpret_cast<size_t&>(x), reinterpret_cast<size_t&>(y));
+positionToXY(text, end, x, y);
 end = XYToPosition(x, y);
 if (select) SetSelection(start, end);
 else SetInsertionPoint(end);
@@ -468,9 +467,9 @@ PositionToXY(end, &x, &y);
 end = xyToPosition(text, x, y);
 if (!df.Reset(text) || !(marker = df.FindNextMarker(end, name))) return false;
 start = marker->start; end = marker->end;
-positionToXY(text, start, reinterpret_cast<size_t&>(x), reinterpret_cast<size_t&>(y));
+positionToXY(text, start, x, y);
 start = XYToPosition(x, y);
-positionToXY(text, end, reinterpret_cast<size_t&>(x), reinterpret_cast<size_t&>(y));
+positionToXY(text, end, x, y);
 end = XYToPosition(x, y);
 if (select) SetSelection(start, end);
 else SetInsertionPoint(end);
@@ -489,9 +488,9 @@ PositionToXY(end, &x, &y);
 end = xyToPosition(text, x, y);
 if (!df.Reset(text) || !(marker = df.FindMarker(end, name))) return false;
 start = marker->start; end = marker->end;
-positionToXY(text, start, reinterpret_cast<size_t&>(x), reinterpret_cast<size_t&>(y));
+positionToXY(text, start, x, y);
 start = XYToPosition(x, y);
-positionToXY(text, end, reinterpret_cast<size_t&>(x), reinterpret_cast<size_t&>(y));
+positionToXY(text, end, x, y);
 end = XYToPosition(x, y);
 SetInsertionPoint(end);
 return true;
