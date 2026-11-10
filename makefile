@@ -54,9 +54,13 @@ doc: $(MDOBJS) doc/scripting-reference.md
 $(EXECUTABLE): $(RCOBJS) $(OBJS)
 	$(CXX) $(CXXFLAGS) $(CXXOPTFLAGS) -o $@ $^ $(LDFLAGS)
 
-$(OBJDIR)%.o: %.cpp $(wildcard %.hpp)
+# -MMD writes a .d file next to each .o listing the headers it includes (system headers excluded),
+# -MP adds empty rules for those headers so that deleting/renaming a header doesn't break the build.
+$(OBJDIR)%.o: %.cpp
 	mkdir.exe -p $(dir $@)
-	$(CXX) $(CXXFLAGS) $(CXXOPTFLAGS) -c -o $@ $<
+	$(CXX) $(CXXFLAGS) $(CXXOPTFLAGS) -MMD -MP -c -o $@ $<
+
+-include $(OBJS:.o=.d)
 
 $(OBJDIR)rsrc/%.o: %.rc
 	mkdir.exe -p $(dir $@)
