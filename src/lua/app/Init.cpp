@@ -59,6 +59,7 @@ return iends_with(msg, "<eof>");
 
 int LuaSimpleEval (const wxString& s, wxString* re) {
 lua_State* L = wxGetApp() .GetLuaState();
+LockLuaCS(L);
 lua_settop(L, 0);
 int result = luaL_loadbufferx(L, U("return " + s).c_str(), s.size()+7, "eval", "bt");
 if (result && IsIncompleteStatement(L)) return 10;

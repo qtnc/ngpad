@@ -155,12 +155,15 @@ else {
 template <class F> inline decltype(auto) RunEDTSync (wxCriticalSection& cs, F&& f) {
 using Fn = std::decay_t<F>;
 using R = std::invoke_result_t<Fn&>;
-if (wxIsMainThread()) return std::forward<F>(f)(); 
-auto& app = wxGetApp();
+if (wxIsMainThread()) return std::forward<F>(f)();
     auto fn = std::make_shared<Fn>(std::forward<F>(f));
     auto promise = std::make_shared<std::promise<R>>();
     auto future = promise->get_future();
+// The caller holds cs: release it while the main thread runs f, and always reacquire it,
+// even if future.get() rethrows an exception raised by f.
+struct Relock { wxCriticalSection& cs; ~Relock () { cs.Enter(); } };
 cs.Leave();
+Relock relock{cs};
     wxGetApp().CallAfter([fn, promise, &cs]() mutable {
 wxCriticalSectionLocker csl(cs);
         try {
@@ -174,15 +177,7 @@ wxCriticalSectionLocker csl(cs);
             promise->set_exception(std::current_exception());
         }
     });
-    if constexpr (std::is_void_v<R>)         {
-future.get();
-cs.Enter();
-}
-else {
-R re = future.get();
-cs.Enter();
-return re;
-    }
+return future.get();
 }
 
 #endif
