@@ -33,6 +33,7 @@ std::pair<long, long> PositionToXY (long pos) const;
 std::pair<long, long> GetSelection () const;
 bool HasSelection ()  const;
 long GetLineOfPosition (long pos) const;
+void SayCurrentLine () const;
 
 int GetIndentType ();
 wxString GetIndentText ();

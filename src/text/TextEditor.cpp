@@ -81,6 +81,13 @@ else if (end==anchor) return TC_SELECT_BACKWARD;
 else return 0;
 }
 
+void TextEditor::SayCurrentLine () const {
+long line = 0;
+PositionToXY(GetInsertionPoint(), nullptr, &line);
+auto text = GetLineText(line);
+wxGetApp() .SayText(text);
+}
+
 void TextEditor::TransferCtrlState (TextEditor& te) {
 auto [start, end] = GetSelection();
 bool modified = IsModified();
@@ -450,7 +457,8 @@ start = XYToPosition(x, y);
 positionToXY(text, end, x, y);
 end = XYToPosition(x, y);
 if (select) SetSelection(start, end);
-else SetInsertionPoint(end);
+else SetInsertionPoint(start);
+SayCurrentLine();
 return true;
 }
 
@@ -472,7 +480,8 @@ start = XYToPosition(x, y);
 positionToXY(text, end, x, y);
 end = XYToPosition(x, y);
 if (select) SetSelection(start, end);
-else SetInsertionPoint(end);
+else SetInsertionPoint(start);
+SayCurrentLine();
 return true;
 }
 
@@ -493,6 +502,7 @@ start = XYToPosition(x, y);
 positionToXY(text, end, x, y);
 end = XYToPosition(x, y);
 SetInsertionPoint(end);
+SayCurrentLine();
 return true;
 }
 
@@ -511,6 +521,7 @@ if (level<curLevel && !bf.IsLikeBlankLine(text)) break;
 }
 if (select) SetSelection(start, XYToPosition(0, line));
 else SetInsertionPoint(XYToPosition(realBeginningOfLine(text), line));
+SayCurrentLine();
 return true;
 }
 
@@ -528,9 +539,9 @@ int nextLevel = bf.GetBlockLevel(nextText);
 if (nextLevel<=level) return false;
 if (select) SetSelection(start, XYToPosition(nextText.size(), line+1));
 else SetInsertionPoint(XYToPosition(realBeginningOfLine(nextText), line+1));
+SayCurrentLine();
 return true;
 }
-
 
 bool TextEditor::MoveToSameIndent (int direction, bool select) {
 auto [start, end] = GetSelection();
@@ -550,12 +561,14 @@ else if (level==curLevel && !bf.IsLikeBlankLine(text)) break;
 }
 if (select) SetSelection(start, XYToPosition(direction>0? GetLineLength(line) : 0, line));
 else SetInsertionPoint(XYToPosition(realBeginningOfLine(text), line));
+SayCurrentLine();
 return true;
 }
 
 bool TextEditor::MoveToIndentEdge (int direction, bool select) {
 int count = 0;
 while (MoveToSameIndent(direction, select)) count++;
+if (count>0) SayCurrentLine();
 return count>0;
 }
 
