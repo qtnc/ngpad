@@ -30,7 +30,7 @@ private:
 wxDocManager* docManager = nullptr;
 wxFrame* mainWindow = nullptr;
 wxBookCtrlBase* notebook = nullptr;
-wxStaticText* liveRegion = nullptr;
+wxStaticText *liveRegionPolite = nullptr, *liveRegionAssertive = nullptr;
 wxPathList pathList;
 struct lua_State* L = nullptr;
 Properties config, translations;
@@ -77,7 +77,7 @@ std::vector<wxAcceleratorEntry>& GetAccelerators () { return accelerators; }
 template <class F> inline void Submit (const F& f) { worker.submit(f); }
 
 void UpdateTitle ();
-void SayText (const wxString& text) override;
+void SayText (const wxString& text, bool interrupt = false) override;
 bool IsClosing () { return closing; }
 bool IsValidDocument (wxDocument* doc);
 bool IsValidView (wxView* view);

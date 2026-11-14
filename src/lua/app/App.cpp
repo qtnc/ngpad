@@ -6,8 +6,8 @@ LuaRegisterReferenceType(App);
 LuaRegisterReferenceType(wxApp);
 LuaRegisterReferenceType(AbstractDocument)
 
-static void AppSayText (const wxString& text) {
-wxGetApp() .SayText(text);
+static void AppSayText (const wxString& text, std::optional<bool> interrupt) {
+wxGetApp() .SayText(text, interrupt.value_or(false));
 }
 
 static int AppGetDocuments (lua_State* L) {
@@ -92,6 +92,7 @@ Binding::LuaClass<App>(L, "App")
 
 //F send some text to the live region, to be spoken by screen readers
 //P text: string: nil: text to be spoken by screen readers
+//P interrupt: boolean: false: whether the current speech must be interrupted
 .method("sayText", SYNC(&AppSayText))
 
 //F Set the text of the clipboard

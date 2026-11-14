@@ -85,7 +85,7 @@ void TextEditor::SayCurrentLine () const {
 long line = 0;
 PositionToXY(GetInsertionPoint(), nullptr, &line);
 auto text = GetLineText(line);
-wxGetApp() .SayText(text);
+wxGetApp() .SayText(text, true);
 }
 
 void TextEditor::TransferCtrlState (TextEditor& te) {

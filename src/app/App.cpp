@@ -167,9 +167,12 @@ mainWindow->SetToolBar(toolbar);
 
 CreateStatusBarForWindow(mainWindow);
 
-liveRegion = new wxStaticText(mainWindow, wxID_ANY, wxEmptyString, wxPoint(0, 0), wxSize(1, 1));
-liveRegion->Hide();
-SetLiveRegion(liveRegion, LIVE_REGION_POLITE);
+liveRegionPolite = new wxStaticText(mainWindow, wxID_ANY, wxEmptyString, wxPoint(0, 0), wxSize(1, 1));
+liveRegionPolite->Hide();
+SetLiveRegion(liveRegionPolite, LIVE_REGION_POLITE);
+liveRegionAssertive = new wxStaticText(mainWindow, wxID_ANY, wxEmptyString, wxPoint(0, 0), wxSize(1, 1));
+liveRegionAssertive->Hide();
+SetLiveRegion(liveRegionAssertive, LIVE_REGION_ASSERTIVE);
 
 accelerators = {
 { wxACCEL_NORMAL, WXK_F6, IDM_SWITCH_PANE }
@@ -390,7 +393,8 @@ plugins[name] .swap(dll);
 return true;
 }
 
-void App::SayText (const wxString& text) {
+void App::SayText (const wxString& text, bool interrupt) {
+auto liveRegion = interrupt? liveRegionAssertive : liveRegionPolite;
 if (!liveRegion) return;
 liveRegion->SetLabel(text);
 LiveRegionUpdated(liveRegion);

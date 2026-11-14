@@ -18,7 +18,7 @@ virtual const wxString& GetUserLocalDir () = 0;
 
 virtual AbstractDocument* GetCurrentDocument () = 0;
 virtual AbstractDocument* OpenOrCreateDocument (const wxString& filename) = 0;
-virtual void SayText (const wxString& text) = 0;
+virtual void SayText (const wxString& text, bool interrupt = false) = 0;
 
 virtual lua_State* GetLuaState () = 0;
 };
