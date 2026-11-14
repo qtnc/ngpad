@@ -213,7 +213,8 @@ if (function.contains("arguments")) {
 auto& a = function["arguments"];
 arguments = a.is_string()? a.get<std::string>() : a.dump();
 }}
-ToolResult result = AgentTools::Execute(name, arguments, context);
+// The model may call a tool that wasn't offered to it: never execute a disabled tool
+ToolResult result = config.IsToolEnabled(name)? AgentTools::Execute(name, arguments, context) : ToolResult::Error(format("Unknown tool: {}. Only use the tools you were given.", name));
 if (pendingToolCallback) {
 json args;
 try { args = json::parse(arguments); } catch (...) { args = arguments; }

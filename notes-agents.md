@@ -50,7 +50,7 @@ Tableau d'objets :
   "temperature": 0.2,
   "maxTokens": 4096,
   "timeout": 600,
-  "tools": ["list_files", "read_file", "search", "edit_file", "write_file"],
+  "tools": "all",
   "permissions": "ask",
   "maxToolIterations": 15,
   "extraBody": {}
@@ -200,5 +200,7 @@ Menu contextuel (pas de barre de menus dans le dialogue) : copier, tout sélecti
   - À vérifier en test : en mode SDI/MDI, `GetCurrentDocument()` pourrait être nul quand le dialogue de l'agent a le focus (la fenêtre enfant désactive sa vue). En mode onglets (défaut) ça devrait aller. Sinon, mémoriser le dernier document actif.
     Si aucun document actif n'est trouvé, `get_editor_context` le dit simplement (pas d'erreur) et la boucle continue.
   - Corrigé dans le saut rapide (`qjFind`) : l'option `i` rendait la recherche sensible à la casse (`FRI_ICASE` = sensible). Désormais `/x/` est sensible et `/x/i` insensible, comme dans `doc/quickJump.md`.
+  - `tools` accepte `"all"` (chaîne, ou tableau contenant `"all"`) ; absent = tous les outils, `[]` = aucun. Un outil non activé appelé quand même par le modèle est refusé (`AgentSession::HandleToolCalls`), pas exécuté.
+  - [x] Documentation utilisateur : `doc/agents.md` (→ `agents.html` via `make doc`, inclus dans le zip par `z.bat`, ainsi que `config/agents.example.json`). **À compléter à chaque nouvel outil ou paramètre de configuration** ; n'y décrire que ce qui est implémenté.
   - [ ] Remplacement multifichier
   - [ ] Exécution de commande / script Lua

@@ -22,10 +22,14 @@ if (j.contains("extraBody") && j["extraBody"].is_object()) c.extraBody = j["extr
 else c.extraBody = json::object();
 if (!c.url.empty() && c.url.back()!='/') c.url += '/';
 c.maxToolIterations = j.value("maxToolIterations", 15);
+// "tools": "all", or an array containing "all", or no tools key at all, enable all available tools
 if (j.contains("tools") && j["tools"].is_array()) {
 c.toolsSpecified = true;
 for (auto& t: j["tools"]) if (t.is_string()) c.tools.push_back(t.get<std::string>());
-}
+if (std::find(c.tools.begin(), c.tools.end(), "all")!=c.tools.end()) {
+c.toolsSpecified = false;
+c.tools.clear();
+}}
 if (j.contains("limits") && j["limits"].is_object()) {
 auto& l = j["limits"];
 c.limits.readMaxLines = l.value("readMaxLines", c.limits.readMaxLines);
