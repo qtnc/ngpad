@@ -46,9 +46,12 @@ Command | Effect
 `/undo` | Remove the last exchange (your message and the answer) from the conversation
 `/retry` | Remove the last exchange and send the same message again
 `/save` | Save the conversation
+`/tokens` | Show the number of tokens used since the beginning of the conversation, and the size of the context at the last request
 `/help` | Show the list of commands and shortcuts
 
 Answers are displayed once complete, as written by the model, usually in markdown. Each tool call made by the agent is shown on a single line, with its name, its parameters, and the first line of its result.
+
+When the server reports it, the number of tokens used is shown after the answer: input tokens (and, if the server indicates it, how many of them were read from the prompt cache) and output tokens. When the agent has called tools, an answer requires several requests: the counts are then summed over all of them. Since the whole conversation is sent again with each request, input tokens grow with the length of the conversation. The `/tokens` command shows the totals since the beginning of the conversation, including requests of exchanges which failed, were cancelled or removed with `/undo`; `/clear` resets them.
 
 ## Tools
 

@@ -73,6 +73,25 @@ if (summary.size()>150) summary = summary.Left(150) + wxString::FromUTF8("…");
 return U(format(GetTranslation("AgentToolCall"), name, U(argText), U(summary)));
 }
 
+static std::string FormatTokenCounts (const TokenUsage& usage) {
+std::string text = format(GetTranslation("AgentTokensInput"), usage.input);
+if (usage.hasCached) text += " " + format(GetTranslation("AgentTokensCached"), usage.cached);
+text += ", " + format(GetTranslation("AgentTokensOutput"), usage.output);
+if (usage.requests>1) text += ", " + format(GetTranslation("AgentTokensRequests"), usage.requests);
+return text;
+}
+
+static wxString FormatTokenUsage (const TokenUsage& usage) {
+if (!usage.hasUsage) return wxEmptyString;
+return U(format(GetTranslation("AgentTokens"), FormatTokenCounts(usage)));
+}
+
+static wxString FormatTotalTokenUsage (const TokenUsage& usage) {
+if (usage.requests==0) return MSG("AgentTokensNoRequest");
+if (!usage.hasUsage) return MSG("AgentTokensUnavailable");
+return U(format(GetTranslation("AgentTokensTotal"), FormatTokenCounts(usage)) + "\n" + format(GetTranslation("AgentTokensContext"), usage.lastInput));
+}
+
 bool AgentDialog::IsBusy () {
 return session && session->IsBusy();
 }
@@ -111,7 +130,7 @@ bool sent = session->Send(prompt, [this, name, exchangeStart](bool success, cons
 auto& app = wxGetApp();
 if (success) {
 exchangeStarts.push_back(exchangeStart);
-editor->WriteAnswer(text);
+editor->WriteAnswer(text, FormatTokenUsage(session->GetLastUsage()));
 app.SayText(U(format(GetTranslation("AgentAnswerReceived"), U(name))));
 }
 else {
@@ -135,6 +154,11 @@ else ChangeModel(arg);
 else if (name=="undo") UndoLastExchange(false);
 else if (name=="retry") UndoLastExchange(true);
 else if (name=="save") SaveConversation();
+else if (name=="tokens") {
+wxString text = FormatTotalTokenUsage(session->GetTotalUsage());
+editor->WriteInfo(text);
+app.SayText(text.BeforeFirst('\n'));
+}
 else if (name=="help") editor->WriteInfo(MSG("AgentHelp"));
 else {
 wxString msg = U(format(GetTranslation("AgentUnknownCommand"), U(name)));

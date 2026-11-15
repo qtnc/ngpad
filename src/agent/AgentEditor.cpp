@@ -63,10 +63,14 @@ WriteText("\n");
 messageMarks.push_back({ headerStart, GetLastPosition() });
 }
 
-void AgentEditor::WriteAnswer (const wxString& a) {
+void AgentEditor::WriteAnswer (const wxString& a, const wxString& stats) {
 WriteHeader(MSG("AIResponse"));
 WriteText(a);
 WriteText("\n\n");
+if (!stats.empty()) {
+WriteText(stats);
+WriteText("\n\n");
+}
 WritePromptInvite();
 }
 

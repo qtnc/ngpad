@@ -40,6 +40,29 @@ auto dirs = wxFileName::DirName(root).GetDirs();
 return dirs.empty()? root : dirs.Last();
 }
 
+static long long GetCount (const json& obj, const char* key, bool* found = nullptr) {
+auto it = obj.find(key);
+if (it==obj.end() || !it->is_number()) return 0;
+if (found) *found = true;
+return it->get<long long>();
+}
+
+void TokenUsage::Add (const json& u) {
+requests++;
+if (!u.is_object()) return;
+hasUsage = true;
+// OpenAI chat completions format; input_tokens / output_tokens (Responses API) are also accepted
+lastInput = GetCount(u, "prompt_tokens") + GetCount(u, "input_tokens");
+input += lastInput;
+output += GetCount(u, "completion_tokens") + GetCount(u, "output_tokens");
+bool found = false;
+auto details = u.find("prompt_tokens_details");
+if (details!=u.end() && details->is_object()) cached += GetCount(*details, "cached_tokens", &found);
+// DeepSeek
+cached += GetCount(u, "prompt_cache_hit_tokens", &found);
+if (found) hasCached = true;
+}
+
 AgentSession::AgentSession (const AgentConfig& cfg, const wxString& root0):
 config(cfg), root(root0), model(cfg.model), messages(json::array()), alive(std::make_shared<bool>(true))
 {}
@@ -59,6 +82,7 @@ busy = false;
 request = wxWebRequest();
 }
 messages = json::array();
+totalUsage = TokenUsage();
 }
 
 bool AgentSession::UndoLastExchange (wxString* prompt) {
@@ -149,6 +173,7 @@ bool AgentSession::Send (const wxString& prompt, const ResponseCallback& callbac
 if (busy) return false;
 exchangeStart = messages.size();
 toolIterations = 0;
+usage = TokenUsage();
 pendingCallback = callback;
 pendingToolCallback = toolCallback;
 messages.push_back({ {"role", "user"}, {"content", U(prompt)} });
@@ -172,6 +197,10 @@ pendingCallback(false, U(error));
 void AgentSession::OnChatResponse (const std::string& body, std::string error) {
 if (error.empty()) try {
 json j = json::parse(body);
+// Tokens are counted in the conversation total even if the exchange fails later
+json u = j.contains("usage")? j["usage"] : json();
+usage.Add(u);
+totalUsage.Add(u);
 auto& message = j.at("choices").at(0).at("message");
 auto toolCalls = message.find("tool_calls");
 if (toolCalls!=message.end() && toolCalls->is_array() && !toolCalls->empty()) {

@@ -22,7 +22,7 @@ bool IsEditableAtInsertionPoint (bool bs = false);
 int GetInputInsertionPoint () { return inputInsertionPoint; }
 void SetInputInsertionPoint (int i) { inputInsertionPoint=i; }
 void WritePromptInvite ();
-void WriteAnswer (const wxString& answer);
+void WriteAnswer (const wxString& answer, const wxString& stats = wxEmptyString);
 void WriteError (const wxString& error);
 void WriteInfo (const wxString& info);
 void WriteToolCall (const wxString& text);

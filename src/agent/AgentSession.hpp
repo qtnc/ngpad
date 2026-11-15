@@ -9,6 +9,15 @@
 
 wxString GetWorkspaceName (const wxString& root);
 
+// Token counts reported by the server (usage field), summed over all the requests of an exchange
+struct TokenUsage {
+long long input = 0, output = 0, cached = 0;
+long long lastInput = 0; // Input tokens of the last request, i.e. the current size of the context
+int requests = 0;
+bool hasUsage = false, hasCached = false;
+void Add (const nlohmann::json& usage);
+};
+
 class AgentSession {
 public:
 typedef std::function<void(bool success, const wxString& text)> ResponseCallback;
@@ -30,6 +39,7 @@ ToolCallCallback pendingToolCallback;
 ToolContext::ConfirmCallback confirmCallback;
 size_t exchangeStart = 0;
 int toolIterations = 0;
+TokenUsage usage, totalUsage;
 
 nlohmann::json BuildRequestBody ();
 bool StartRequest (const std::string& path, const std::string& body, const RawCallback& callback);
@@ -48,6 +58,8 @@ const wxString& GetRoot () const { return root; }
 const std::string& GetModel () const { return model; }
 void SetModel (const std::string& m) { model = m; }
 bool IsBusy () const { return busy; }
+const TokenUsage& GetLastUsage () const { return usage; }
+const TokenUsage& GetTotalUsage () const { return totalUsage; }
 void SetConfirmCallback (const ToolContext::ConfirmCallback& callback) { confirmCallback = callback; }
 
 void Clear ();
