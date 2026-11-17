@@ -1,24 +1,38 @@
 #ifndef _____AGENT_TOOLS_HPP
 #define _____AGENT_TOOLS_HPP
 #include "AgentConfig.hpp"
+#include<atomic>
 #include<functional>
+#include<memory>
 #include<vector>
 
 enum class ToolConfirmation { Allow, Deny, Stop };
 
+// Lua environment of an agent: globals defined by run_lua scripts persist in it during the conversation
+struct LuaEnvironment {
+int ref = -2; // LUA_NOREF until first use
+~LuaEnvironment ();
+};
+
+// Tools are executed in a separate thread: the context is copied into it and must not refer to the session
 struct ToolContext {
-typedef std::function<ToolConfirmation(const wxString& message, bool denyByDefault)> ConfirmCallback;
+typedef std::function<ToolConfirmation(const wxString& message, const wxString& details, bool denyByDefault)> ConfirmCallback;
 wxString root, rootDir; // rootDir: normalized, with trailing separator
-const AgentLimits& limits;
+AgentLimits limits;
+std::string shell;
 std::vector<wxString> ignoredDirs, excludedExtensions;
 ConfirmCallback confirm;
+std::shared_ptr<std::atomic<bool>> cancelled;
+std::shared_ptr<LuaEnvironment> luaEnv;
 
 ToolContext (const wxString& root, const AgentLimits& limits);
 bool ResolvePath (const std::string& input, wxString& absPath, std::string& error) const;
 std::string GetRelativePath (const wxString& absPath, bool isDir = false) const;
 bool IsIgnoredDir (const wxString& name) const;
 bool IsExcludedFile (const wxString& name) const;
-ToolConfirmation Confirm (const wxString& message, bool denyByDefault = false) const;
+bool IsCancelled () const { return cancelled && *cancelled; }
+// Ask the user on the main thread. details: long text (command, script...) shown in a read-only text field
+ToolConfirmation Confirm (const wxString& message, bool denyByDefault = false, const wxString& details = wxEmptyString) const;
 };
 
 struct ToolResult {
@@ -37,6 +51,7 @@ std::string name, description;
 nlohmann::json parameters;
 Handler handler;
 bool modifiesFiles = false;
+bool mainThread = false; // The handler works mostly with documents and the GUI: run it entirely on the main thread
 };
 
 // Registry of the tools an agent can use.
@@ -47,7 +62,14 @@ static std::vector<AgentTool>& GetAll ();
 static void Register (const AgentTool& tool);
 static const AgentTool* Find (const std::string& name);
 static nlohmann::json GetDefinitions (const AgentConfig& config);
+// Can be called from any thread
 static ToolResult Execute (const std::string& name, const std::string& arguments, const ToolContext& context);
 };
+
+// Valid UTF-8 from bytes in UTF-8 or else in the given encoding; CRLF are converted to LF
+std::string ToValidUTF8 (const std::string& bytes, wxMBConv& fallback);
+
+ToolResult ToolRunCommand (const nlohmann::json& args, const ToolContext& context);
+ToolResult ToolRunLua (const nlohmann::json& args, const ToolContext& context);
 
 #endif

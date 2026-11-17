@@ -9,7 +9,8 @@
 "temperature": 0.2,
 "timeout": 600,
 "tools": "all",
+"shell": "cmd /s /c \"{command}\"",
 "maxToolIterations": 15,
-"limits": { "readMaxLines": 500, "listMaxEntries": 500, "searchMaxResults": 100, "searchMaxLineLength": 200, "maxResultChars": 50000 }
+"limits": { "readMaxLines": 500, "listMaxEntries": 500, "searchMaxResults": 100, "searchMaxLineLength": 200, "maxResultChars": 50000, "commandTimeout": 60, "commandMaxTimeout": 600 }
 }
 ]

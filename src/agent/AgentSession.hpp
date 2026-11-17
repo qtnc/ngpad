@@ -32,8 +32,11 @@ wxString root;
 std::string model;
 nlohmann::json messages;
 wxWebRequest request;
-bool busy = false;
+bool busy = false; // An HTTP request is pending
+bool toolsRunning = false; // Tool calls are being executed in their thread
 std::shared_ptr<bool> alive;
+std::shared_ptr<std::atomic<bool>> cancelled; // Cancellation of the current exchange, shared with the tool thread
+std::shared_ptr<LuaEnvironment> luaEnv;
 ResponseCallback pendingCallback;
 ToolCallCallback pendingToolCallback;
 ToolContext::ConfirmCallback confirmCallback;
@@ -47,6 +50,7 @@ void OnRequestDone (const wxWebRequestEvent& e, const RawCallback& callback);
 bool SendChatRequest ();
 void OnChatResponse (const std::string& body, std::string error);
 void HandleToolCalls (const nlohmann::json& message);
+void OnToolCallsDone (const nlohmann::json& calls, const std::vector<ToolResult>& results, bool stopped);
 void FailExchange (const std::string& error);
 
 public:
@@ -57,7 +61,7 @@ const AgentConfig& GetConfig () const { return config; }
 const wxString& GetRoot () const { return root; }
 const std::string& GetModel () const { return model; }
 void SetModel (const std::string& m) { model = m; }
-bool IsBusy () const { return busy; }
+bool IsBusy () const { return busy || toolsRunning; }
 const TokenUsage& GetLastUsage () const { return usage; }
 const TokenUsage& GetTotalUsage () const { return totalUsage; }
 void SetConfirmCallback (const ToolContext::ConfirmCallback& callback) { confirmCallback = callback; }

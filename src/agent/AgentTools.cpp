@@ -85,8 +85,9 @@ for (auto& e: excludedExtensions) if (e.IsSameAs(ext, false)) return true;
 return false;
 }
 
-ToolConfirmation ToolContext::Confirm (const wxString& message, bool denyByDefault) const {
-return confirm? confirm(message, denyByDefault) : ToolConfirmation::Deny;
+ToolConfirmation ToolContext::Confirm (const wxString& message, bool denyByDefault, const wxString& details) const {
+if (!confirm) return ToolConfirmation::Deny;
+return RunEDTSync([&](){ return confirm(message, details, denyByDefault); });
 }
 
 static std::string GetStringArg (const json& args, const std::string& key, const std::string& def = "") {
@@ -158,15 +159,43 @@ if (n>=3 && buf[0]==0xEF && buf[1]==0xBB && buf[2]==0xBF) return false;
 return std::find(buf, buf+n, 0)!=buf+n;
 }
 
+static wxString NormalizePath (const wxString& path) {
+wxFileName fn(path);
+fn.Normalize(wxPATH_NORM_DOTS | wxPATH_NORM_ABSOLUTE);
+return fn.GetFullPath();
+}
+
+// Main thread only
 static wxTextCtrlIface* FindOpenEditor (const wxString& filename) {
 auto doc = dynamic_cast<TextDocument*>(wxGetApp().FindDocument(filename));
 return doc? doc->GetEditor() : nullptr;
 }
 
-static bool ReadTextFile (const wxString& filename, wxString& text) {
+// Functions below can be called from any thread: documents and editors are only accessed on the main thread
+
+static bool IsOpenInEditor (const wxString& filename) {
+return RunEDTSync([&](){ return FindOpenEditor(filename)!=nullptr; });
+}
+
+// Normalized lower case paths of the documents open in the editor
+static std::set<wxString> GetOpenFiles () {
+return RunEDTSync([](){
+std::set<wxString> files;
+for (auto wxdoc: wxGetApp().GetDocManager()->GetDocumentsVector()) {
+if (!wxdoc->GetFilename().empty()) files.insert(NormalizePath(wxdoc->GetFilename()).Lower());
+}
+return files;
+});
+}
+
+// checkEditor: false when the file is known not to be open, to avoid a round trip to the main thread
+static bool ReadTextFile (const wxString& filename, wxString& text, bool checkEditor = true) {
+bool open = checkEditor && RunEDTSync([&](){
 auto editor = FindOpenEditor(filename);
-if (editor) {
-text = editor->GetValue();
+if (editor) text = editor->GetValue();
+return editor!=nullptr;
+});
+if (open) {
 text.Replace("\r\n", "\n");
 return true;
 }
@@ -177,15 +206,18 @@ return LoadFile(filename, text, properties);
 
 // Write the new content of a file: in the editor if the file is open (without saving), otherwise on disk
 static bool WriteTextFile (const wxString& filename, wxString text) {
-if (auto iface = FindOpenEditor(filename)) {
+int written = RunEDTSync([&](){
+auto iface = FindOpenEditor(filename);
+if (!iface) return -1;
 auto editor = dynamic_cast<TextEditor*>(iface);
-if (!editor) return false;
+if (!editor) return 0;
 auto [start, end] = editor->GetSelection();
 editor->ReplaceAndPushUndoState(0, editor->GetLastPosition(), text);
 long last = editor->GetLastPosition();
 editor->SetSelection(std::min(start, last), std::min(end, last));
-return true;
-}
+return 1;
+});
+if (written>=0) return written>0;
 Properties properties;
 LoadEditorConfig(properties, filename);
 if (wxFileExists(filename)) {
@@ -204,7 +236,7 @@ return SaveFile(filename, text, properties);
 }
 
 static wxString GetWriteLocation (const wxString& filename) {
-return FindOpenEditor(filename)? MSG("AgentInEditor") : MSG("AgentOnDisk");
+return IsOpenInEditor(filename)? MSG("AgentInEditor") : MSG("AgentOnDisk");
 }
 
 static ToolResult RefusedResult (ToolConfirmation answer) {
@@ -288,7 +320,7 @@ if (!context.ResolvePath(path, file, error)) return ToolResult::Error(error);
 std::string rel = context.GetRelativePath(file);
 if (wxDirExists(file)) return ToolResult::Error(format("{} is a directory. Use list_files to see its content.", rel));
 if (!wxFileExists(file)) return ToolResult::Error(format("File not found: {}. Use list_files to see available files.", rel));
-if (!FindOpenEditor(file) && IsBinaryFile(file)) return ToolResult::Error(format("{} is a binary file and can't be read as text.", rel));
+if (!IsOpenInEditor(file) && IsBinaryFile(file)) return ToolResult::Error(format("{} is a binary file and can't be read as text.", rel));
 wxString text;
 if (!ReadTextFile(file, text)) return ToolResult::Error(format("Unable to read {}.", rel));
 auto lines = wxSplit(text, '\n', 0);
@@ -317,9 +349,10 @@ return ToolResult::Ok(result);
 
 static ToolResult ToolSearchFiles (const json& args, const ToolContext& context) {
 std::string pattern = GetStringArg(args, "pattern"), path = GetStringArg(args, "path"), error;
-bool regex = GetBoolArg(args, "regex", false);
+bool regex = GetBoolArg(args, "regex", false), ignoreCase = GetBoolArg(args, "ignore_case", true);
 if (pattern.empty()) return ToolResult::Error("pattern is required.");
-FindReplaceInfo info(FRI_FIND | (regex? FRI_REGEX : 0), U(pattern));
+// FRI_ICASE actually means case-sensitive
+FindReplaceInfo info(FRI_FIND | (regex? FRI_REGEX : 0) | (ignoreCase? 0 : FRI_ICASE), U(pattern));
 try {
 info.CreateRegEx();
 } catch (std::exception& e) {
@@ -331,11 +364,13 @@ std::vector<wxString> files = sel.files;
 if (!sel.singleFile.empty()) files.push_back(sel.singleFile);
 std::vector<std::string> lines;
 size_t nFiles = 0;
+auto openFiles = GetOpenFiles();
 for (auto& file: files) {
-bool open = FindOpenEditor(file);
+if (context.IsCancelled()) return ToolResult::Error("Cancelled.");
+bool open = openFiles.count(file.Lower());
 if (!open && sel.singleFile.empty() && (context.IsExcludedFile(file) || IsBinaryFile(file))) continue;
 wxString text;
-if (!ReadTextFile(file, text)) continue;
+if (!ReadTextFile(file, text, open)) continue;
 std::vector<FindResultInfo> results;
 info.FindAllInText(results, text, file, 0, text.size());
 if (results.empty()) continue;
@@ -359,6 +394,84 @@ text += format("[{} matches in {} files]\n", lines.size(), nFiles);
 return ToolResult::Ok(text);
 }
 
+// In a replacement of a non-regex search, $ and \ have no special meaning
+static wxString EscapeReplacement (const wxString& s) {
+wxString result;
+for (auto c: s) {
+if (c=='$' || c=='\\') result += c;
+result += c;
+}
+return result;
+}
+
+static ToolResult ToolReplaceInFiles (const json& args, const ToolContext& context) {
+std::string pattern = GetStringArg(args, "pattern"), replacement = GetStringArg(args, "replacement"), path = GetStringArg(args, "path"), error;
+bool regex = GetBoolArg(args, "regex", false), ignoreCase = GetBoolArg(args, "ignore_case", false);
+if (pattern.empty()) return ToolResult::Error("pattern is required.");
+if (args.find("replacement")==args.end()) return ToolResult::Error("replacement is required. Use an empty string to delete the matches.");
+wxString repl = U(replacement);
+repl.Replace("\r\n", "\n");
+FindReplaceInfo info(FRI_FIND | FRI_REPLACE | (regex? FRI_REGEX : 0) | (ignoreCase? 0 : FRI_ICASE), U(pattern), regex? repl : EscapeReplacement(repl));
+try {
+info.CreateRegEx();
+} catch (std::exception& e) {
+return ToolResult::Error(format("Invalid regular expression: {}", e.what()));
+}
+FileSelection sel;
+if (!SelectFiles(path, true, false, context, sel, error)) return ToolResult::Error(error);
+std::vector<wxString> files = sel.files;
+if (!sel.singleFile.empty()) files.push_back(sel.singleFile);
+struct FileChange { wxString file; std::string rel; bool open; wxString newText; int count; };
+std::vector<FileChange> changes;
+std::vector<std::string> samples;
+int total = 0;
+auto openFiles = GetOpenFiles();
+try {
+for (auto& file: files) {
+if (context.IsCancelled()) return ToolResult::Error("Cancelled.");
+bool open = openFiles.count(file.Lower());
+if (!open && sel.singleFile.empty() && (context.IsExcludedFile(file) || IsBinaryFile(file))) continue;
+wxString text;
+if (!ReadTextFile(file, text, open)) continue;
+std::vector<FindResultInfo> results;
+info.FindAllInText(results, text, file, 0, text.size());
+if (results.empty()) continue;
+std::string rel = context.GetRelativePath(file);
+for (size_t i=0; i<results.size() && samples.size()<5; i++) {
+auto& r = results[i];
+samples.push_back(format("{}:{}: {} -> {}", rel, r.y+1, U(r.foundText), U(r.replacementText)));
+}
+wxString newText = text;
+int count = info.ReplaceAllInText(newText, 0);
+if (count<=0 || newText==text) continue;
+changes.push_back({ file, rel, open, newText, count });
+total += count;
+}
+} catch (std::exception& e) {
+return ToolResult::Error(format("Invalid replacement: {}", e.what()));
+}
+if (changes.empty()) return ToolResult::Ok(format("No matches for '{}' in {}: nothing was replaced.", pattern, path.empty()? "/" : path));
+std::string details = GetTranslation("AgentReplaceFiles") + "\n";
+for (auto& c: changes) details += format("{} ({}, {})\n", c.rel, c.count, U(c.open? MSG("AgentInEditor") : MSG("AgentOnDisk")));
+details += "\n" + GetTranslation("AgentReplaceExamples") + "\n";
+for (auto& s: samples) details += s + "\n";
+auto answer = context.Confirm(U(format(GetTranslation("AgentConfirmReplace"), total, changes.size(), pattern, replacement)), false, U(details));
+if (answer!=ToolConfirmation::Allow) return RefusedResult(answer);
+std::string result, failed;
+int replaced = 0, nFiles = 0;
+for (auto& c: changes) {
+if (WriteTextFile(c.file, c.newText)) {
+result += format("{}: {}\n", c.rel, c.count);
+replaced += c.count;
+nFiles++;
+}
+else failed += c.rel + "\n";
+}
+result = format("Replaced {} occurrence{} in {} file{}:\n", replaced, replaced>1? "s" : "", nFiles, nFiles>1? "s" : "") + result;
+if (!failed.empty()) result += "Unable to write these files:\n" + failed;
+return ToolResult::Ok(result);
+}
+
 static ToolResult ToolEditFile (const json& args, const ToolContext& context) {
 std::string path = GetStringArg(args, "path"), error;
 wxString oldText = U(GetStringArg(args, "old_text")), newText = U(GetStringArg(args, "new_text"));
@@ -369,7 +482,7 @@ wxString file;
 if (!context.ResolvePath(path, file, error)) return ToolResult::Error(error);
 std::string rel = context.GetRelativePath(file);
 if (wxDirExists(file)) return ToolResult::Error(format("{} is a directory. Give the path of a file.", rel));
-bool open = FindOpenEditor(file);
+bool open = IsOpenInEditor(file);
 if (!open && !wxFileExists(file)) return ToolResult::Error(format("File not found: {}. Use write_file to create a new file.", rel));
 if (!open && IsBinaryFile(file)) return ToolResult::Error(format("{} is a binary file and can't be edited as text.", rel));
 wxString text;
@@ -397,7 +510,7 @@ if (!context.ResolvePath(path, file, error)) return ToolResult::Error(error);
 std::string rel = context.GetRelativePath(file);
 if (rel.empty() || wxDirExists(file)) return ToolResult::Error(format("{} is a directory. Give the path of a file.", rel.empty()? "/" : rel));
 content.Replace("\r\n", "\n");
-bool exists = FindOpenEditor(file) || wxFileExists(file);
+bool exists = IsOpenInEditor(file) || wxFileExists(file);
 std::string message = exists? format(GetTranslation("AgentConfirmOverwrite"), rel, U(GetWriteLocation(file))) : format(GetTranslation("AgentConfirmCreate"), rel);
 auto answer = context.Confirm(U(message));
 if (answer!=ToolConfirmation::Allow) return RefusedResult(answer);
@@ -405,12 +518,6 @@ if (!WriteTextFile(file, content)) return ToolResult::Error(format("Unable to wr
 size_t lines = std::count(content.begin(), content.end(), '\n');
 if (!content.empty() && content.Last()!='\n') lines++;
 return ToolResult::Ok(format("Wrote {}: {} line{}.", rel, lines, lines>1? "s" : ""));
-}
-
-static wxString NormalizePath (const wxString& path) {
-wxFileName fn(path);
-fn.Normalize(wxPATH_NORM_DOTS | wxPATH_NORM_ABSOLUTE);
-return fn.GetFullPath();
 }
 
 // Open documents designating the given file, or located in the given directory
@@ -596,17 +703,33 @@ json::parse(R"({
 ToolReadFile
 });
 tools.push_back({ "search_files",
-"Search for text in workspace files, case-insensitively. The search is always recursive. Returns one line per match in the form path:line: text.",
+"Search for text in workspace files. The search is case-insensitive unless ignore_case is false, and always recursive. Returns one line per match in the form path:line: text.",
 json::parse(R"({
 "type": "object",
 "properties": {
 "pattern": { "type": "string", "description": "Text to search for, or a regular expression (PCRE syntax) if regex is true." },
 "path": { "type": "string", "description": "Directory or file to search in, optionally followed by a file name pattern, for example 'src/' or 'src/*.cpp'. Empty for the whole workspace." },
-"regex": { "type": "boolean", "description": "Whether pattern is a regular expression. Default: false." }
+"regex": { "type": "boolean", "description": "Whether pattern is a regular expression. Default: false." },
+"ignore_case": { "type": "boolean", "description": "Ignore case when searching. Default: true." }
 },
 "required": ["pattern"]
 })"),
 ToolSearchFiles
+});
+tools.push_back({ "replace_in_files",
+"Replace a text or a regular expression in several files of the workspace at once. The search is case-sensitive unless ignore_case is true, and always recursive. To change a single passage of a file, prefer edit_file. Use search_files first to check what will be replaced.",
+json::parse(R"({
+"type": "object",
+"properties": {
+"pattern": { "type": "string", "description": "Text to replace, or a regular expression (PCRE syntax) if regex is true." },
+"replacement": { "type": "string", "description": "Replacement text. With regex, $1 to $9 insert captured groups and $0 the whole match. Empty to delete the matches." },
+"path": { "type": "string", "description": "Directory or file to search in, optionally followed by a file name pattern, for example 'src/' or 'src/*.cpp'. Empty for the whole workspace." },
+"regex": { "type": "boolean", "description": "Whether pattern is a regular expression. Default: false." },
+"ignore_case": { "type": "boolean", "description": "Ignore case when searching. Default: false." }
+},
+"required": ["pattern", "replacement"]
+})"),
+ToolReplaceInFiles, true
 });
 tools.push_back({ "edit_file",
 "Edit a text file of the workspace by replacing an exact text with a new one. old_text must match the file content exactly, including whitespace and indentation, and must appear only once unless replace_all is true. Read the file with read_file before editing it, and don't include line numbers in old_text.",
@@ -640,7 +763,7 @@ json::parse(R"({
 "type": "object",
 "properties": {}
 })"),
-ToolGetEditorContext
+ToolGetEditorContext, false, true
 });
 tools.push_back({ "open_in_editor",
 "Open a file of the workspace in the text editor so that the user can see it, optionally moving the cursor or selecting a passage. Returns the resulting cursor position and selection.",
@@ -652,7 +775,7 @@ json::parse(R"({
 },
 "required": ["path"]
 })"),
-ToolOpenInEditor
+ToolOpenInEditor, false, true
 });
 tools.push_back({ "move_file",
 "Move or rename a file or directory of the workspace. Missing directories of the destination are created. Fails if the destination already exists.",
@@ -664,7 +787,7 @@ json::parse(R"({
 },
 "required": ["path", "new_path"]
 })"),
-ToolMoveFile, true
+ToolMoveFile, true, true
 });
 tools.push_back({ "delete_file",
 "Delete a file or directory of the workspace, with all its content. It is moved to the trash.",
@@ -675,7 +798,31 @@ json::parse(R"({
 },
 "required": ["path"]
 })"),
-ToolDeleteFile, true
+ToolDeleteFile, true, true
+});
+tools.push_back({ "run_command",
+"Run a command line in a shell, in the workspace or one of its subdirectories, and return its exit code and output (standard output and errors). The command can't read any input and is killed when it takes too long.",
+json::parse(R"({
+"type": "object",
+"properties": {
+"command": { "type": "string", "description": "Command line to run." },
+"cwd": { "type": "string", "description": "Working directory, relative to the workspace root. Default: the workspace root." },
+"timeout": { "type": "integer", "description": "Maximum time in seconds before the command is killed." }
+},
+"required": ["command"]
+})"),
+ToolRunCommand
+});
+tools.push_back({ "run_lua",
+"Run Lua code inside the text editor, with access to its whole scripting API (documents, editors, menus...). As in an interactive console, an expression is evaluated and its value returned, and the output of print is captured. Global variables persist between calls.",
+json::parse(R"({
+"type": "object",
+"properties": {
+"code": { "type": "string", "description": "Lua code: a single expression, or statements optionally ending with return." }
+},
+"required": ["code"]
+})"),
+ToolRunLua, true
 });
 }
 
@@ -731,7 +878,8 @@ return ToolResult::Error(format("Invalid JSON arguments: {}", e.what()));
 if (args.is_null()) args = json::object();
 if (!args.is_object()) return ToolResult::Error("Arguments must be a JSON object.");
 try {
-result = tool->handler(args, context);
+if (tool->mainThread) result = RunEDTSync([&](){ return tool->handler(args, context); });
+else result = tool->handler(args, context);
 } catch (std::exception& e) {
 result = ToolResult::Error(e.what());
 }

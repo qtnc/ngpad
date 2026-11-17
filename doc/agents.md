@@ -61,13 +61,18 @@ Tool | Description
 -----|-----
 `list_files` | List files and directories, optionally recursively and with a file name pattern such as `src/**/*.cpp`
 `read_file` | Read a text file, entirely or only some lines
-`search_files` | Search a text or a regular expression in all files of the workspace or of a directory, case-insensitively
+`search_files` | Search a text or a regular expression in all files of the workspace or of a directory, case-insensitively by default
+`replace_in_files` | Replace a text or a regular expression in all files of the workspace or of a directory, case-sensitively by default. With a regular expression, `$1` to `$9` in the replacement insert captured groups
 `edit_file` | Replace an exact passage of a file by a new text
 `write_file` | Create a file, or replace the whole content of an existing file. Missing directories are created
 `get_editor_context` | Know which file is active in the editor, the position of the cursor, the selected text, and the other open files
 `open_in_editor` | Open a file in the editor, optionally moving the cursor to a line, selecting a passage, or searching a text
 `move_file` | Move or rename a file or a directory
 `delete_file` | Delete a file or a directory with all its content, by moving it to the trash
+`run_command` | Run a command line in the workspace or one of its subdirectories (see below)
+`run_lua` | Run Lua code inside the editor, with access to the whole [scripting API](scripting-reference.html) (see below)
+
+Tools are executed in a separate thread: the editor stays usable while a command or a long search is running. Shift+Escape cancels the work of the agent; a running command is then killed.
 
 ### Paths
 
@@ -76,22 +81,39 @@ Directories ignored by `list_files` and `search_files` are given by `agent_ignor
 
 ### Open files
 
-When a file is open in the editor, `read_file`, `search_files` and `edit_file` work with the content of the editor, including unsaved changes, instead of the file on disk.
+When a file is open in the editor, `read_file`, `search_files`, `replace_in_files` and `edit_file` work with the content of the editor, including unsaved changes, instead of the file on disk.
 Modifications made in an open file aren't saved: you can review them, undo them with Ctrl+Z, and save them yourself.
 When a file isn't open, it is read and written directly on disk. Its encoding and line endings are kept. New files are created according to editorconfig, or `default_charset` and `default_line_ending` of config.ini.
 
 When a file is moved or renamed by `move_file`, the corresponding open tabs follow, including their unsaved changes.
 When a file is deleted by `delete_file`, the corresponding open tabs are closed without asking to save them. The confirmation tells how many tabs will be closed, and how many of them have unsaved changes which will be lost.
 
+### Commands
+
+`run_command` runs a command line through the shell given by the `shell` setting of the agent, by default `cmd /s /c "{command}"`. The working directory is the workspace root, or one of its subdirectories chosen by the agent.
+Note that a command can do anything your user account can do, including accessing files outside of the workspace: always read it before allowing it.
+
+- The command can't read any input, and no window is shown.
+- It is killed, with all the processes it started, when it runs longer than its timeout (`commandTimeout` and `commandMaxTimeout` limits), or when you cancel the work of the agent with Shift+Escape.
+- The result starts with the exit code, followed by the standard output and errors. They are read separately, so their relative order may not be exactly kept; add `2>&1` to the `shell` setting if it matters. The output is decoded as UTF-8 if it is valid UTF-8, and otherwise with the OEM code page of the console. When it is too long, its beginning and its end are kept.
+- A program started in the background by the command isn't waited for.
+
+### Lua
+
+`run_lua` runs Lua code in the editor, as in the Lua console: if the code is an expression, its value is returned; otherwise it is run as statements, which can end with `return`. The output of `print` is returned to the agent instead of being shown in the console.
+The code has access to the whole scripting API, and can therefore do anything a plugin can do. Global variables it defines are kept in an environment of its own: they persist from one call to the next during the conversation, don't affect plugins, and are forgotten when the conversation is cleared.
+There is currently no protection against a script which never ends.
+
 ### Confirmations
 
-Each modification made by `edit_file`, `write_file`, `move_file` or `delete_file` must be confirmed. The confirmation tells which file is concerned, and if the modification will be made in the editor or on disk.
+Each modification made by `edit_file`, `write_file`, `replace_in_files`, `move_file` or `delete_file` must be confirmed, as well as each command and each Lua script. The confirmation tells which file is concerned, and if the modification will be made in the editor or on disk.
+For `replace_in_files`, a single confirmation shows the list of modified files with the number of replacements in each of them, and a few examples. For `run_command` and `run_lua`, the command or the code is shown in a text field, which has the focus so that you can read it before answering.
 
 - Allow: the modification is made, and the agent continues.
 - Deny: the modification isn't made. The agent is informed of your refusal and continues; it should ask you what to do instead.
 - Stop the agent (or Escape): the modification isn't made, and the agent stops immediately, as if the request was cancelled. Modifications allowed before are kept.
 
-For `delete_file`, the default button is Deny.
+For `delete_file`, `run_command` and `run_lua`, the default button is Deny.
 If the agent window is hidden when a confirmation is needed, it is shown again first.
 
 ## Configuration
@@ -114,6 +136,7 @@ temperature | number | | Sampling temperature. When not specified, the default o
 maxTokens | integer | | Maximum number of tokens of an answer. When not specified, the default of the server is used
 timeout | integer | 600 | Maximum time to wait for an answer, in seconds. Local models can be very slow
 tools | array or "all" | all | Tools the agent can use (see below)
+shell | string | cmd /s /c "{command}" | Command line used by `run_command`. `{command}` is replaced by the command given by the agent; without `{command}`, the command is added at the end. It can also be used to run commands through a program filtering their output, for example to reduce the number of tokens
 maxToolIterations | integer | 15 | Maximum number of successive tool call rounds for a single message. When exceeded, the agent stops with an error
 limits | object | | Limits on the size of tool results (see below)
 extraBody | object | | Additional parameters added as is to the body of each request, for parameters specific to a server or a model
@@ -135,6 +158,8 @@ listMaxEntries | 500 | Maximum number of entries returned by `list_files`
 searchMaxResults | 100 | Maximum number of matches returned by `search_files`
 searchMaxLineLength | 200 | Matching lines longer than this number of characters are cut in `search_files` results
 maxResultChars | 50000 | Maximum size of any tool result, in bytes
+commandTimeout | 60 | Time in seconds after which a command run by `run_command` is killed, when the agent doesn't give another timeout
+commandMaxTimeout | 600 | Maximum timeout the agent can give to `run_command`, in seconds
 
 When a limit is reached, the result tells the agent how to get the rest, for example by reading the next lines or by using a more specific pattern.
 

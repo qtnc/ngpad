@@ -16,6 +16,7 @@ c.systemPrompt = j.value("systemPrompt", "");
 c.temperature = j.value("temperature", -1.0);
 c.maxTokens = j.value("maxTokens", -1);
 c.timeout = j.value("timeout", 600);
+c.shell = j.value("shell", DEFAULT_AGENT_SHELL);
 if (j.contains("headers") && j["headers"].is_object()) c.headers = j["headers"];
 else c.headers = json::object();
 if (j.contains("extraBody") && j["extraBody"].is_object()) c.extraBody = j["extraBody"];
@@ -37,6 +38,8 @@ c.limits.listMaxEntries = l.value("listMaxEntries", c.limits.listMaxEntries);
 c.limits.searchMaxResults = l.value("searchMaxResults", c.limits.searchMaxResults);
 c.limits.searchMaxLineLength = l.value("searchMaxLineLength", c.limits.searchMaxLineLength);
 c.limits.maxResultChars = l.value("maxResultChars", c.limits.maxResultChars);
+c.limits.commandTimeout = l.value("commandTimeout", c.limits.commandTimeout);
+c.limits.commandMaxTimeout = l.value("commandMaxTimeout", c.limits.commandMaxTimeout);
 }
 return c;
 }

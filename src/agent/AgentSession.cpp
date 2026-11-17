@@ -3,6 +3,7 @@
 #include "../app/WebRequester.hpp"
 #include "../common/println.hpp"
 #include<unordered_map>
+#include<thread>
 #include <wx/filename.h>
 
 using json = nlohmann::json;
@@ -64,29 +65,35 @@ if (found) hasCached = true;
 }
 
 AgentSession::AgentSession (const AgentConfig& cfg, const wxString& root0):
-config(cfg), root(root0), model(cfg.model), messages(json::array()), alive(std::make_shared<bool>(true))
+config(cfg), root(root0), model(cfg.model), messages(json::array()), alive(std::make_shared<bool>(true)),
+cancelled(std::make_shared<std::atomic<bool>>(false)), luaEnv(std::make_shared<LuaEnvironment>())
 {}
 
 AgentSession::~AgentSession () {
 *alive = false;
+*cancelled = true;
 Cancel();
 }
 
 void AgentSession::Clear () {
-if (busy) {
-// Silently drop the pending request: its callback would write into the cleared conversation
+if (IsBusy()) {
+// Silently drop the pending request or tool calls: their callbacks would write into the cleared conversation
 *alive = false;
 alive = std::make_shared<bool>(true);
-Cancel();
+*cancelled = true;
+if (busy && request.IsOk()) request.Cancel();
 busy = false;
+toolsRunning = false;
 request = wxWebRequest();
 }
 messages = json::array();
+// Globals defined by Lua scripts are forgotten
+luaEnv = std::make_shared<LuaEnvironment>();
 totalUsage = TokenUsage();
 }
 
 bool AgentSession::UndoLastExchange (wxString* prompt) {
-if (busy) return false;
+if (IsBusy()) return false;
 for (size_t i=messages.size(); i-->0; ) {
 if (messages[i].value("role", "")!="user") continue;
 if (prompt) *prompt = U(messages[i].value("content", ""));
@@ -97,6 +104,11 @@ return false;
 }
 
 bool AgentSession::Cancel () {
+if (toolsRunning) {
+// The tool thread stops after the current tool; a running command is killed
+*cancelled = true;
+return true;
+}
 if (!busy || !request.IsOk()) return false;
 request.Cancel();
 return true;
@@ -170,7 +182,8 @@ callback(body, error);
 }
 
 bool AgentSession::Send (const wxString& prompt, const ResponseCallback& callback, const ToolCallCallback& toolCallback) {
-if (busy) return false;
+if (IsBusy()) return false;
+cancelled = std::make_shared<std::atomic<bool>>(false);
 exchangeStart = messages.size();
 toolIterations = 0;
 usage = TokenUsage();
@@ -232,8 +245,31 @@ if (!calls[i].contains("id") || !calls[i]["id"].is_string()) calls[i]["id"] = fo
 std::string content = message.contains("content") && message["content"].is_string()? message["content"].get<std::string>() : "";
 messages.push_back({ {"role", "assistant"}, {"content", content}, {"tool_calls", calls} });
 ToolContext context(root, config.limits);
-context.confirm = confirmCallback;
+// Called on the main thread: the dialog may have been closed, or the conversation cleared, in the meantime
+std::weak_ptr<bool> confirmAlive = alive;
+auto confirm = confirmCallback;
+if (confirm) context.confirm = [confirmAlive, confirm](const wxString& message, const wxString& details, bool denyByDefault){
+auto lock = confirmAlive.lock();
+if (!lock || !*lock) return ToolConfirmation::Stop;
+return confirm(message, details, denyByDefault);
+};
+context.shell = config.shell;
+context.cancelled = cancelled;
+context.luaEnv = luaEnv;
+std::vector<bool> enabled;
 for (auto& call: calls) {
+std::string name = call.contains("function") && call["function"].is_object()? call["function"].value("name", "") : "";
+enabled.push_back(config.IsToolEnabled(name));
+}
+// Tools run in their own thread, so that the interface stays responsive during long commands or searches.
+// Results come back to the main thread with CallAfter, only if the session still exists.
+toolsRunning = true;
+std::weak_ptr<bool> weakAlive = alive;
+std::thread([this, weakAlive, calls, enabled, context](){
+std::vector<ToolResult> results;
+bool stopped = false;
+for (size_t i=0; i<calls.size() && !context.IsCancelled(); i++) {
+auto& call = calls[i];
 std::string name, arguments;
 if (call.contains("function") && call["function"].is_object()) {
 auto& function = call["function"];
@@ -243,18 +279,39 @@ auto& a = function["arguments"];
 arguments = a.is_string()? a.get<std::string>() : a.dump();
 }}
 // The model may call a tool that wasn't offered to it: never execute a disabled tool
-ToolResult result = config.IsToolEnabled(name)? AgentTools::Execute(name, arguments, context) : ToolResult::Error(format("Unknown tool: {}. Only use the tools you were given.", name));
-if (pendingToolCallback) {
+ToolResult result = enabled[i]? AgentTools::Execute(name, arguments, context) : ToolResult::Error(format("Unknown tool: {}. Only use the tools you were given.", name));
+results.push_back(result);
 json args;
 try { args = json::parse(arguments); } catch (...) { args = arguments; }
-pendingToolCallback(name, args, result);
-}
+wxGetApp().CallAfter([this, weakAlive, name, args, result](){
+auto lock = weakAlive.lock();
+if (lock && *lock && pendingToolCallback) pendingToolCallback(name, args, result);
+});
 if (result.stop) {
+stopped = true;
+break;
+}}
+wxGetApp().CallAfter([this, weakAlive, calls, results, stopped](){
+auto lock = weakAlive.lock();
+if (lock && *lock) OnToolCallsDone(calls, results, stopped);
+});
+}).detach();
+}
+
+void AgentSession::OnToolCallsDone (const json& calls, const std::vector<ToolResult>& results, bool stopped) {
+toolsRunning = false;
+if (*cancelled) {
+FailExchange(GetTranslation("AgentRequestCancelled"));
+return;
+}
+if (stopped) {
 // Remaining tool calls are abandoned along with the whole exchange
 FailExchange(GetTranslation("AgentStoppedByUser"));
 return;
 }
-messages.push_back({ {"role", "tool"}, {"tool_call_id", call["id"]}, {"name", name}, {"content", result.text} });
+for (size_t i=0; i<results.size(); i++) {
+std::string name = calls[i].contains("function") && calls[i]["function"].is_object()? calls[i]["function"].value("name", "") : "";
+messages.push_back({ {"role", "tool"}, {"tool_call_id", calls[i]["id"]}, {"name", name}, {"content", results[i].text} });
 }
 if (!SendChatRequest()) FailExchange(GetTranslation("AgentSendFailed"));
 }

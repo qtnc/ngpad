@@ -8,16 +8,47 @@
 #include <wx/file.h>
 #include<algorithm>
 
+// Confirmation of a tool call with a long text to check: a command, a Lua script, a list of replacements...
+// The text has the focus so that it can be read first. Returns wxID_YES (allow), wxID_NO (deny) or wxID_CANCEL (stop).
+static int ShowConfirmDetailsDialog (wxWindow* parent, const wxString& title, const wxString& message, const wxString& details, bool denyByDefault) {
+wxDialog dlg(parent, wxID_ANY, title, wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
+auto label = new wxStaticText(&dlg, wxID_ANY, message);
+auto text = new wxTextCtrl(&dlg, wxID_ANY, details, wxDefaultPosition, dlg.FromDIP(wxSize(600, 250)), wxTE_MULTILINE | wxTE_READONLY | wxTE_RICH2 | wxHSCROLL | wxTE_DONTWRAP);
+auto allow = new wxButton(&dlg, wxID_YES, MSG("AgentAllow"));
+auto deny = new wxButton(&dlg, wxID_NO, MSG("AgentDeny"));
+auto stop = new wxButton(&dlg, wxID_CANCEL, MSG("AgentStop"));
+auto buttons = new wxBoxSizer(wxHORIZONTAL);
+buttons->Add(allow, 0, wxALL, 5);
+buttons->Add(deny, 0, wxALL, 5);
+buttons->Add(stop, 0, wxALL, 5);
+auto sizer = new wxBoxSizer(wxVERTICAL);
+sizer->Add(label, 0, wxALL | wxEXPAND, 5);
+sizer->Add(text, 1, wxALL | wxEXPAND, 5);
+sizer->Add(buttons, 0, wxALIGN_RIGHT);
+dlg.SetSizerAndFit(sizer);
+(denyByDefault? deny : allow)->SetDefault();
+dlg.SetEscapeId(wxID_CANCEL);
+for (auto btn: { allow, deny }) btn->Bind(wxEVT_BUTTON, [&dlg](wxCommandEvent& e){ dlg.EndModal(e.GetId()); });
+dlg.CentreOnParent();
+text->SetFocus();
+return dlg.ShowModal();
+}
+
 AgentDialog::AgentDialog (wxWindow* parent, const wxString& title, const AgentConfig& config, const wxString& root):
 wxDialog(parent, wxID_ANY, title, wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMAXIMIZE_BOX | wxDIALOG_NO_PARENT)
 {
 session = std::make_unique<AgentSession>(config, root);
-session->SetConfirmCallback([this](const wxString& message, bool denyByDefault){
+session->SetConfirmCallback([this](const wxString& message, const wxString& details, bool denyByDefault){
 // The dialog may be hidden while the agent is working
 ShowAgent();
+int result;
+if (details.empty()) {
 wxMessageDialog dlg(this, message, U(session->GetConfig().name), wxYES_NO | wxCANCEL | (denyByDefault? wxNO_DEFAULT : 0) | wxICON_QUESTION);
 dlg.SetYesNoCancelLabels(MSG("AgentAllow"), MSG("AgentDeny"), MSG("AgentStop"));
-switch(dlg.ShowModal()){
+result = dlg.ShowModal();
+}
+else result = ShowConfirmDetailsDialog(this, U(session->GetConfig().name), message, details, denyByDefault);
+switch(result){
 case wxID_YES: return ToolConfirmation::Allow;
 case wxID_NO: return ToolConfirmation::Deny;
 default: return ToolConfirmation::Stop;

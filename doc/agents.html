@@ -1,14 +1,20 @@
 <!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<html xmlns="http://www.w3.org/1999/xhtml">
 <head>
   <meta charset="utf-8" />
-  <meta name="generator" content="pandoc" />
+  <meta name="generator" content="pandoc 3.13" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <title>AI agents</title>
   <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
     html {
       color: #1a1a1a;
+      color: light-dark(#1a1a1a, #fdfdfd);
       background-color: #fdfdfd;
+      background-color: light-dark(#fdfdfd, #1a1a1a);
+      color-scheme: light dark;
     }
     body {
       margin: 0 auto;
@@ -33,12 +39,16 @@
     }
     @media print {
       html {
-        background-color: white;
+        color-scheme: light only;
       }
-      body {
+      html, body, pre, code {
         background-color: transparent;
+      }
+      body, a, a:visited, blockquote {
         color: black;
-        font-size: 12pt;
+      }
+      pre, code {
+        padding: 0;
       }
       p, h2, h3 {
         orphans: 3;
@@ -51,13 +61,14 @@
     p {
       margin: 1em 0;
     }
-    a {
-      color: #1a1a1a;
-    }
-    a:visited {
-      color: #1a1a1a;
+    a, a:visited {
+      color: inherit;
     }
     img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
       max-width: 100%;
     }
     h1, h2, h3, h4, h5, h6 {
@@ -80,10 +91,14 @@
     blockquote {
       margin: 1em 0 1em 1.7em;
       padding-left: 1em;
-      border-left: 2px solid #e6e6e6;
+      border-left: 2px solid;
+      border-color: #e6e6e6;
+      border-color: light-dark(#e6e6e6, #4c4c4c);
       color: #606060;
+      color: light-dark(#606060, #b6b6b6);
     }
     code {
+      white-space: pre-wrap;
       font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
       font-size: 85%;
       margin: 0;
@@ -103,8 +118,8 @@
      overflow: visible;
     }
     hr {
-      background-color: #1a1a1a;
       border: none;
+      border-top: 1px solid currentColor;
       height: 1px;
       margin: 1em 0;
     }
@@ -121,11 +136,11 @@
     }
     tbody {
       margin-top: 0.5em;
-      border-top: 1px solid #1a1a1a;
-      border-bottom: 1px solid #1a1a1a;
+      border-top: 1px solid currentColor;
+      border-bottom: 1px solid currentColor;
     }
     th {
-      border-top: 1px solid #1a1a1a;
+      border-top: 1px solid currentColor;
       padding: 0.25em 0.5em 0.25em 0.5em;
     }
     td {
@@ -147,19 +162,25 @@
     #TOC a:not(:hover) {
       text-decoration: none;
     }
-    code{white-space: pre-wrap;}
     span.smallcaps{font-variant: small-caps;}
-    div.columns{display: flex; gap: min(4vw, 1.5em);}
-    div.column{flex: auto; overflow-x: auto;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
     div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
-    ul.task-list{list-style: none;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
     ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
       width: 0.8em;
       margin: 0 0.8em 0.2em -1.6em;
       vertical-align: middle;
     }
-    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
     /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
     pre > code.sourceCode { white-space: pre; position: relative; }
     pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
     pre > code.sourceCode > span:empty { height: 1.2em; }
@@ -224,9 +245,6 @@
     code span.vs { color: #4070a0; } /* VerbatimString */
     code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
   </style>
-  <!--[if lt IE 9]>
-    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
-  <![endif]-->
 </head>
 <body>
 <header id="title-block-header">
@@ -257,49 +275,49 @@ another message. The beginning and the end of the work are announced by
 your screen reader, even if the window is hidden.</p>
 <table>
 <thead>
-<tr class="header">
+<tr>
 <th>Shortcut</th>
 <th>Action</th>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td>Shift+Enter</td>
 <td>Send the message</td>
 </tr>
-<tr class="even">
+<tr>
 <td>Escape</td>
 <td>Hide the window. The conversation and a pending request are kept;
 press F11 to come back</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>Shift+Escape</td>
 <td>Cancel the pending request</td>
 </tr>
-<tr class="even">
+<tr>
 <td>Ctrl+Up / Ctrl+Down</td>
 <td>Go to the previous / next message</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>Ctrl+Shift+Up / Ctrl+Shift+Down</td>
 <td>Select up to the beginning of the previous message / the end of the
 current message</td>
 </tr>
-<tr class="even">
+<tr>
 <td>Ctrl+Enter</td>
 <td><a href="quickJump.html">Quick jump</a> using the word under the
 cursor, for example a file name followed by a line number such as
 <code>main.cpp:12</code></td>
 </tr>
-<tr class="odd">
+<tr>
 <td>Ctrl+M</td>
 <td>Choose the model</td>
 </tr>
-<tr class="even">
+<tr>
 <td>Ctrl+Shift+L</td>
 <td>Clear the conversation</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>Ctrl+S</td>
 <td>Save the conversation</td>
 </tr>
@@ -310,38 +328,43 @@ the window, closing the agent definitively deletes the conversation.</p>
 <p>The following commands can be typed instead of a message:</p>
 <table>
 <thead>
-<tr class="header">
+<tr>
 <th>Command</th>
 <th>Effect</th>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code>/clear</code></td>
 <td>Clear the conversation</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>/model</code></td>
 <td>List available models</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>/model name</code></td>
 <td>Use another model</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>/undo</code></td>
 <td>Remove the last exchange (your message and the answer) from the
 conversation</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>/retry</code></td>
 <td>Remove the last exchange and send the same message again</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>/save</code></td>
 <td>Save the conversation</td>
 </tr>
-<tr class="odd">
+<tr>
+<td><code>/tokens</code></td>
+<td>Show the number of tokens used since the beginning of the
+conversation, and the size of the context at the last request</td>
+</tr>
+<tr>
 <td><code>/help</code></td>
 <td>Show the list of commands and shortcuts</td>
 </tr>
@@ -350,61 +373,91 @@ conversation</td>
 <p>Answers are displayed once complete, as written by the model, usually
 in markdown. Each tool call made by the agent is shown on a single line,
 with its name, its parameters, and the first line of its result.</p>
+<p>When the server reports it, the number of tokens used is shown after
+the answer: input tokens (and, if the server indicates it, how many of
+them were read from the prompt cache) and output tokens. When the agent
+has called tools, an answer requires several requests: the counts are
+then summed over all of them. Since the whole conversation is sent again
+with each request, input tokens grow with the length of the
+conversation. The <code>/tokens</code> command shows the totals since
+the beginning of the conversation, including requests of exchanges which
+failed, were cancelled or removed with <code>/undo</code>;
+<code>/clear</code> resets them.</p>
 <h2 id="tools">Tools</h2>
 <p>Tools are what allows the agent to interact with the workspace and
 the editor.</p>
 <table>
 <thead>
-<tr class="header">
+<tr>
 <th>Tool</th>
 <th>Description</th>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code>list_files</code></td>
 <td>List files and directories, optionally recursively and with a file
 name pattern such as <code>src/**/*.cpp</code></td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>read_file</code></td>
 <td>Read a text file, entirely or only some lines</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>search_files</code></td>
 <td>Search a text or a regular expression in all files of the workspace
-or of a directory, case-insensitively</td>
+or of a directory, case-insensitively by default</td>
 </tr>
-<tr class="even">
+<tr>
+<td><code>replace_in_files</code></td>
+<td>Replace a text or a regular expression in all files of the workspace
+or of a directory, case-sensitively by default. With a regular
+expression, <code>$1</code> to <code>$9</code> in the replacement insert
+captured groups</td>
+</tr>
+<tr>
 <td><code>edit_file</code></td>
 <td>Replace an exact passage of a file by a new text</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>write_file</code></td>
 <td>Create a file, or replace the whole content of an existing file.
 Missing directories are created</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>get_editor_context</code></td>
 <td>Know which file is active in the editor, the position of the cursor,
 the selected text, and the other open files</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>open_in_editor</code></td>
 <td>Open a file in the editor, optionally moving the cursor to a line,
 selecting a passage, or searching a text</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>move_file</code></td>
 <td>Move or rename a file or a directory</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>delete_file</code></td>
 <td>Delete a file or a directory with all its content, by moving it to
 the trash</td>
 </tr>
+<tr>
+<td><code>run_command</code></td>
+<td>Run a command line in the workspace or one of its subdirectories
+(see below)</td>
+</tr>
+<tr>
+<td><code>run_lua</code></td>
+<td>Run Lua code inside the editor, with access to the whole <a
+href="scripting-reference.html">scripting API</a> (see below)</td>
+</tr>
 </tbody>
 </table>
+<p>Tools are executed in a separate thread: the editor stays usable
+while a command or a long search is running. Shift+Escape cancels the
+work of the agent; a running command is then killed.</p>
 <h3 id="paths">Paths</h3>
 <p>The agent only sees paths relative to the workspace root, with
 <code>/</code> as separator. Directories ignored by
@@ -414,26 +467,65 @@ are ignored by <code>search_files</code> and can't be read by
 <code>read_file</code>.</p>
 <h3 id="open-files">Open files</h3>
 <p>When a file is open in the editor, <code>read_file</code>,
-<code>search_files</code> and <code>edit_file</code> work with the
-content of the editor, including unsaved changes, instead of the file on
-disk. Modifications made in an open file aren't saved: you can review
-them, undo them with Ctrl+Z, and save them yourself. When a file isn't
-open, it is read and written directly on disk. Its encoding and line
-endings are kept. New files are created according to editorconfig, or
-<code>default_charset</code> and <code>default_line_ending</code> of
-config.ini.</p>
+<code>search_files</code>, <code>replace_in_files</code> and
+<code>edit_file</code> work with the content of the editor, including
+unsaved changes, instead of the file on disk. Modifications made in an
+open file aren't saved: you can review them, undo them with Ctrl+Z, and
+save them yourself. When a file isn't open, it is read and written
+directly on disk. Its encoding and line endings are kept. New files are
+created according to editorconfig, or <code>default_charset</code> and
+<code>default_line_ending</code> of config.ini.</p>
 <p>When a file is moved or renamed by <code>move_file</code>, the
 corresponding open tabs follow, including their unsaved changes. When a
 file is deleted by <code>delete_file</code>, the corresponding open tabs
 are closed without asking to save them. The confirmation tells how many
 tabs will be closed, and how many of them have unsaved changes which
 will be lost.</p>
+<h3 id="commands">Commands</h3>
+<p><code>run_command</code> runs a command line through the shell given
+by the <code>shell</code> setting of the agent, by default
+<code>cmd /s /c "{command}"</code>. The working directory is the
+workspace root, or one of its subdirectories chosen by the agent. Note
+that a command can do anything your user account can do, including
+accessing files outside of the workspace: always read it before allowing
+it.</p>
+<ul>
+<li>The command can't read any input, and no window is shown.</li>
+<li>It is killed, with all the processes it started, when it runs longer
+than its timeout (<code>commandTimeout</code> and
+<code>commandMaxTimeout</code> limits), or when you cancel the work of
+the agent with Shift+Escape.</li>
+<li>The result starts with the exit code, followed by the standard
+output and errors. They are read separately, so their relative order may
+not be exactly kept; add <code>2&gt;&amp;1</code> to the
+<code>shell</code> setting if it matters. The output is decoded as UTF-8
+if it is valid UTF-8, and otherwise with the OEM code page of the
+console. When it is too long, its beginning and its end are kept.</li>
+<li>A program started in the background by the command isn't waited
+for.</li>
+</ul>
+<h3 id="lua">Lua</h3>
+<p><code>run_lua</code> runs Lua code in the editor, as in the Lua
+console: if the code is an expression, its value is returned; otherwise
+it is run as statements, which can end with <code>return</code>. The
+output of <code>print</code> is returned to the agent instead of being
+shown in the console. The code has access to the whole scripting API,
+and can therefore do anything a plugin can do. Global variables it
+defines are kept in an environment of its own: they persist from one
+call to the next during the conversation, don't affect plugins, and are
+forgotten when the conversation is cleared. There is currently no
+protection against a script which never ends.</p>
 <h3 id="confirmations">Confirmations</h3>
 <p>Each modification made by <code>edit_file</code>,
-<code>write_file</code>, <code>move_file</code> or
-<code>delete_file</code> must be confirmed. The confirmation tells which
+<code>write_file</code>, <code>replace_in_files</code>,
+<code>move_file</code> or <code>delete_file</code> must be confirmed, as
+well as each command and each Lua script. The confirmation tells which
 file is concerned, and if the modification will be made in the editor or
-on disk.</p>
+on disk. For <code>replace_in_files</code>, a single confirmation shows
+the list of modified files with the number of replacements in each of
+them, and a few examples. For <code>run_command</code> and
+<code>run_lua</code>, the command or the code is shown in a text field,
+which has the focus so that you can read it before answering.</p>
 <ul>
 <li>Allow: the modification is made, and the agent continues.</li>
 <li>Deny: the modification isn't made. The agent is informed of your
@@ -442,9 +534,9 @@ refusal and continues; it should ask you what to do instead.</li>
 agent stops immediately, as if the request was cancelled. Modifications
 allowed before are kept.</li>
 </ul>
-<p>For <code>delete_file</code>, the default button is Deny. If the
-agent window is hidden when a confirmation is needed, it is shown again
-first.</p>
+<p>For <code>delete_file</code>, <code>run_command</code> and
+<code>run_lua</code>, the default button is Deny. If the agent window is
+hidden when a confirmation is needed, it is shown again first.</p>
 <h2 id="configuration">Configuration</h2>
 <p>Agents are configured in the file <code>config/agents.json</code>. As
 for other configuration files, it is searched first in the user
@@ -455,7 +547,7 @@ to <code>config/agents.json</code> and adapt it.</p>
 allowed. Only <code>name</code> and <code>url</code> are required.</p>
 <table>
 <thead>
-<tr class="header">
+<tr>
 <th>Key</th>
 <th>Value type</th>
 <th>Default value</th>
@@ -463,14 +555,14 @@ allowed. Only <code>name</code> and <code>url</code> are required.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td>name</td>
 <td>string</td>
 <td></td>
 <td>Name of the agent, shown in the window title and when choosing an
 agent</td>
 </tr>
-<tr class="even">
+<tr>
 <td>url</td>
 <td>string</td>
 <td></td>
@@ -479,21 +571,21 @@ agent</td>
 <code>chat/completions</code> and <code>models</code> relatively to this
 URL</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>api</td>
 <td>string</td>
 <td>openai-chat</td>
 <td>Format of the API. Only <code>openai-chat</code> is currently
 supported</td>
 </tr>
-<tr class="even">
+<tr>
 <td>model</td>
 <td>string</td>
 <td></td>
 <td>Model to use at the start of the conversation. It can be changed
 later with Ctrl+M or <code>/model</code></td>
 </tr>
-<tr class="odd">
+<tr>
 <td>headers</td>
 <td>object</td>
 <td></td>
@@ -501,54 +593,64 @@ later with Ctrl+M or <code>/model</code></td>
 authentication, for example
 <code>{"Authorization": "Bearer your-api-key"}</code></td>
 </tr>
-<tr class="even">
+<tr>
 <td>systemPrompt</td>
 <td>string</td>
 <td></td>
 <td>Instructions given to the model at the beginning of the
 conversation</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>temperature</td>
 <td>number</td>
 <td></td>
 <td>Sampling temperature. When not specified, the default of the server
 is used</td>
 </tr>
-<tr class="even">
+<tr>
 <td>maxTokens</td>
 <td>integer</td>
 <td></td>
 <td>Maximum number of tokens of an answer. When not specified, the
 default of the server is used</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>timeout</td>
 <td>integer</td>
 <td>600</td>
 <td>Maximum time to wait for an answer, in seconds. Local models can be
 very slow</td>
 </tr>
-<tr class="even">
+<tr>
 <td>tools</td>
 <td>array or "all"</td>
 <td>all</td>
 <td>Tools the agent can use (see below)</td>
 </tr>
-<tr class="odd">
+<tr>
+<td>shell</td>
+<td>string</td>
+<td>cmd /s /c "{command}"</td>
+<td>Command line used by <code>run_command</code>.
+<code>{command}</code> is replaced by the command given by the agent;
+without <code>{command}</code>, the command is added at the end. It can
+also be used to run commands through a program filtering their output,
+for example to reduce the number of tokens</td>
+</tr>
+<tr>
 <td>maxToolIterations</td>
 <td>integer</td>
 <td>15</td>
 <td>Maximum number of successive tool call rounds for a single message.
 When exceeded, the agent stops with an error</td>
 </tr>
-<tr class="even">
+<tr>
 <td>limits</td>
 <td>object</td>
 <td></td>
 <td>Limits on the size of tool results (see below)</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>extraBody</td>
 <td>object</td>
 <td></td>
@@ -571,39 +673,52 @@ to call them anyway.</p>
 <h3 id="limits">Limits</h3>
 <table>
 <thead>
-<tr class="header">
+<tr>
 <th>Key</th>
 <th>Default value</th>
 <th>Description</th>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td>readMaxLines</td>
 <td>500</td>
 <td>Maximum number of lines returned by <code>read_file</code>, and of
 selected lines returned by <code>get_editor_context</code></td>
 </tr>
-<tr class="even">
+<tr>
 <td>listMaxEntries</td>
 <td>500</td>
 <td>Maximum number of entries returned by <code>list_files</code></td>
 </tr>
-<tr class="odd">
+<tr>
 <td>searchMaxResults</td>
 <td>100</td>
 <td>Maximum number of matches returned by <code>search_files</code></td>
 </tr>
-<tr class="even">
+<tr>
 <td>searchMaxLineLength</td>
 <td>200</td>
 <td>Matching lines longer than this number of characters are cut in
 <code>search_files</code> results</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>maxResultChars</td>
 <td>50000</td>
 <td>Maximum size of any tool result, in bytes</td>
+</tr>
+<tr>
+<td>commandTimeout</td>
+<td>60</td>
+<td>Time in seconds after which a command run by
+<code>run_command</code> is killed, when the agent doesn't give another
+timeout</td>
+</tr>
+<tr>
+<td>commandMaxTimeout</td>
+<td>600</td>
+<td>Maximum timeout the agent can give to <code>run_command</code>, in
+seconds</td>
 </tr>
 </tbody>
 </table>
@@ -633,7 +748,7 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb1-1"><a href="
 <h3 id="directives-in-configini">Directives in config.ini</h3>
 <table>
 <thead>
-<tr class="header">
+<tr>
 <th>Key</th>
 <th>Value type</th>
 <th>Default value</th>
@@ -641,14 +756,14 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb1-1"><a href="
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td>agent_ignored_dirs</td>
 <td>string</td>
 <td>.git, .svn, .hg, node_modules, obj, objd, __pycache__</td>
 <td>Comma-separated list of directory names ignored by
 <code>list_files</code> and <code>search_files</code></td>
 </tr>
-<tr class="even">
+<tr>
 <td>workspace_file_list_exclude_exts</td>
 <td>string</td>
 <td></td>

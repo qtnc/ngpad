@@ -6,6 +6,7 @@
 #include<cstring>
 #include<functional>
 #include<vector>
+#include<variant>
 #include<unordered_map>
 #include<stdexcept>
 

@@ -17,7 +17,7 @@ Notes de travail pour l'ajout d'agents IA dans l'éditeur. À relire avant de re
 - **Dialogue non modal plutôt qu'onglet** (décision révisée ; l'agent était d'abord un type de document comme la console). Le document actif de la fenêtre principale reste celui que l'utilisateur regarde, ce qui servira à `get_editor_context` : on pourra le lire à chaque envoi.
 - **Un agent par racine**, racine fixe pour toute sa durée de vie : `GetWorkspaceRoot()` du document actif s'il a un nom de fichier, sinon sélecteur de répertoire. Retrouvé par `App::FindAgent()` (parcours de `wxTopLevelWindows`, comparaison insensible à la casse). Pour travailler sur deux projets, on ouvre deux agents. Meilleure isolation entre projets.
   - Le modèle ne voit que des chemins relatifs à la racine, avec `/` comme séparateur. En entrée on accepte aussi `\`, un `/` initial (= racine de l'espace de travail, jamais la racine du disque) et les chemins absolus situés sous la racine. Tout ce qui sort de la racine est refusé (canonicalisation, `..`).
-- **Écritures** : confirmation à **chaque** écriture pour l'instant. Plus tard : option globale ou par agent (`permissions`: `ask` / `auto` / `readonly`).
+- **Écritures** : confirmation à **chaque** écriture pour l'instant. Prochaine grande étape : les autorisations (voir la section « Autorisations »).
 - **Fichier déjà ouvert** : lecture ET écriture dans le contenu de l'éditeur (`FindEditor()`, `ReplaceAndPushUndoState`), sans enregistrement automatique. Fichier fermé : lecture / écriture sur disque (`LoadFile` / `SaveFile` + editorconfig). La confirmation indique lequel des deux cas s'applique.
 - **Pas de streaming** : on attend la réponse complète.
 - **Markdown** affiché tel quel. Plus tard peut-être une vue web.
@@ -135,7 +135,44 @@ Communs aux deux outils d'écriture :
 
 `create_directory` abandonné : `write_file` crée déjà les répertoires manquants ; un répertoire vide pourra se créer avec l'outil d'exécution de commande.
 
-Plus tard : remplacement multifichier (`ReplaceAllMultiple`, avec confirmation), exécuter une commande / un script Lua. Option utilisateur pour choisir corbeille ou suppression définitive (où et comment : à décider).
+**replace_in_files(pattern, replacement, path?, regex?, ignore_case?)**
+- Même sélection de fichiers que `search_files` (répertoires ignorés, binaires et extensions exclues sautés). Remplacement **sensible à la casse par défaut**, alors que `search_files` est insensible par défaut : les deux outils ont le même paramètre `ignore_case` avec des valeurs par défaut différentes, indiquées explicitement dans chaque description (chercher trop large est sans risque, remplacer trop large l'est moins ; Claude Code et Codex font la même distinction).
+- Ne réutilise pas `FindAllMultiple` / `ReplaceAllMultiple` tels quels : ils se limitent à la sélection quand l'éditeur en a une, et ignorent les répertoires exclus. Réutilise `FindAllInText` (exemples avant/après) et `ReplaceAllInText`, avec la lecture/écriture communes aux autres outils.
+- Hors regex, `$` et `\` du remplacement sont échappés (`pcre2_substitute` les interpréterait).
+- Une seule confirmation : fichiers avec nombre de remplacements et emplacement (éditeur / disque), plus 5 exemples.
+- Retour : `Replaced N occurrences in M files:` puis `path: n` par fichier.
+
+**run_command(command, cwd?, timeout?)**
+- Ligne de commande construite avec `shell` (config par agent, défaut `cmd /s /c "{command}"` ; sans `{command}`, la commande est ajoutée à la fin). Peut servir à passer par un filtre de sortie du genre rtk, si l'outil accepte la commande en arguments.
+- `cwd` relatif à la racine, contrôlé par `ResolvePath` (la commande elle-même peut évidemment tout faire : ce n'est pas un bac à sable).
+- API wxWidgets uniquement (une première version en Win32 direct a été abandonnée). `wxExecute` asynchrone doit être appelé sur le thread principal : lancement via `RunEDTSync` avec un `wxProcess` redirigé (`wxEXEC_HIDE_CONSOLE`, `wxExecuteEnv::cwd`), entrée fermée aussitôt (`CloseOutput`). `wxEVT_END_PROCESS` (thread principal) met à jour un état partagé (fin, code de sortie). Le thread des outils lit stdout et stderr sans bloquer (`CanRead` / `Read`, comme `LiveTextAppender` pour la console). Délai ou annulation : `wxProcess::Kill(pid, wxSIGKILL, wxKILL_CHILDREN)` sur le thread principal. Fin : `delete` du `wxProcess` sur le thread principal si la fin a été notifiée, sinon `Detach()` (il se supprime à la fin du processus).
+  - stdout et stderr sont deux tubes séparés : l'ordre relatif des deux est approximatif (lus alternativement). Si ça gêne : `2>&1` dans `shell`.
+  - Un programme lancé en arrière-plan par la commande n'est pas attendu : on s'arrête dès la notification de fin et quand plus rien n'est disponible dans les tubes.
+- Délai : `limits.commandTimeout` (60 s) par défaut, plafonné par `limits.commandMaxTimeout` (600 s).
+- Retour : `Exit code: N` en première ligne (convention de Codex et Claude Code ; c'est aussi la ligne affichée dans la conversation), puis la sortie. Décodage : UTF-8 si valide (`wxConvUTF8` est strict), sinon page de code OEM (`GetLocalOemDefaultEncoding`) ; toujours de l'UTF-8 valide vers le modèle. Troncature au milieu (`OutputBuffer` garde le début et la fin).
+
+**run_lua(code)**
+- État Lua partagé de l'application (accès à toute l'API), mais environnement propre à l'agent (`_ENV` dont `__index` = `_G`, référencé dans le registre par `LuaEnvironment`) : les globales du script persistent pendant la conversation, ne polluent pas `_G`, et `/clear` les oublie.
+- Comme `LuaSimpleEval` (console) : essai en `return <code>`, sinon en instructions. Valeurs renvoyées converties avec `luaL_tolstring`, séparées par des tabulations. `print` de l'environnement capture la sortie dans une table (remis à nil après l'exécution, pour ne jamais intercepter les `print` des plugins). Erreurs avec traceback (`luaL_call`).
+- Exécuté dans le thread des outils en tenant le verrou Lua ; les bindings `SYNC` passent au thread principal en relâchant le verrou. L'état Lua est créé sur le thread principal (`GetLuaState` via `RunEDTSync`).
+- **À faire plus tard** : protection contre les boucles infinies (hook d'instructions `lua_sethook` qui vérifie l'annulation et un délai). Pour l'instant rien : à voir si ça pose réellement problème. Un script qui ne se termine pas garde le verrou Lua, et Shift+Échap ne l'interrompt pas.
+- **À faire plus tard** : donner au modèle la référence de l'API (option B) : outil ou ressource renvoyant `scripting-reference` par section. Pour l'instant le modèle n'a qu'une description brève et l'introspection (`pairs`).
+
+Option utilisateur pour choisir corbeille ou suppression définitive (où et comment : à décider).
+
+## Autorisations (prochaine grande étape)
+
+Avec `run_command` et `run_lua`, l'agent peut sortir complètement de la racine : la confirmation est le seul garde-fou. Mais confirmer chaque action devient vite pénible et pousse à cliquer « Autoriser » sans lire, ce qui est pire qu'une politique explicite.
+
+Décision de départ (simple) :
+- Un paramètre **global** par agent, plus un paramètre **par outil** qui le remplace : `ask` (confirmer) / `allow` (sans confirmation) / `deny` (outil refusé, ou retiré de la liste envoyée au modèle). Noms exacts et forme JSON à fixer.
+- Une **liste blanche d'expressions régulières pour `run_command`**, le seul cas particulier : une commande correspondante est exécutée sans confirmation même si l'outil est en `ask`.
+- Le paramètre `tools` existant reste la façon de retirer complètement un outil ; à voir si `deny` le remplace ou le complète.
+
+Pistes pour plus tard :
+- Bouton « Toujours autoriser pendant cette conversation » dans la confirmation (par outil, ou pour une commande précise).
+- Garde-fous non désactivables ? Par ex. suppression toujours confirmée avec Refuser par défaut. À discuter.
+- Les outils de lecture n'ont jamais besoin de confirmation.
 
 ## Commandes et menus prévus (étape 2)
 
@@ -182,7 +219,7 @@ Menu contextuel (pas de barre de menus dans le dialogue) : copier, tout sélecti
   - `AgentSession` : boucle d'outils (`HandleToolCalls`), au plus `maxToolIterations` tours ; en cas d'échec ou d'annulation, tout l'échange (message utilisateur, appels et résultats d'outils) est retiré de l'historique. Une phrase indiquant le nom de la racine est ajoutée au prompt système quand des outils sont actifs.
   - Config : `tools` (absent = tous les outils), `maxToolIterations`, `limits` ; `agent_ignored_dirs` dans `config.ini` ; `workspace_file_list_exclude_exts` (déjà existant) est réutilisé pour ignorer des fichiers dans `search_files`.
   - Chaque appel d'outil est écrit sur une ligne dans la conversation (« Outil read_file (path: ...): première ligne du résultat ») et annoncé brièvement (« Outil read_file »).
-  - Les outils s'exécutent sur le thread principal : une recherche sur une très grosse arborescence peut bloquer l'interface un moment. À déplacer sur le worker si ça pose problème.
+  - Les outils s'exécutaient d'abord sur le thread principal ; ils ont un thread à eux depuis l'étape 5 (voir plus bas).
   - Attention : dans `FindReplaceInfo`, `FRI_ICASE` signifie en fait « sensible à la casse » (sans ce drapeau, la recherche est insensible).
   - Corrigé au passage : `GlobToRegEx` testait `glob[i]` au lieu de `glob[i+1]` pour `[!...]`.
 - [x] Étape 4 (compilée ; à tester dans l'interface)
@@ -203,5 +240,13 @@ Menu contextuel (pas de barre de menus dans le dialogue) : copier, tout sélecti
   - `tools` accepte `"all"` (chaîne, ou tableau contenant `"all"`) ; absent = tous les outils, `[]` = aucun. Un outil non activé appelé quand même par le modèle est refusé (`AgentSession::HandleToolCalls`), pas exécuté.
   - [x] Documentation utilisateur : `doc/agents.md` (→ `agents.html` via `make doc`, inclus dans le zip par `z.bat`, ainsi que `config/agents.example.json`). **À compléter à chaque nouvel outil ou paramètre de configuration** ; n'y décrire que ce qui est implémenté.
   - [x] Statistiques de tokens (compilé ; à tester dans l'interface) : champ `usage` standard de `chat/completions` (`prompt_tokens`, `completion_tokens`, `prompt_tokens_details.cached_tokens` ; acceptés aussi : `input_tokens`/`output_tokens`, `prompt_cache_hit_tokens` de DeepSeek). Cumul sur toutes les requêtes d'un échange (`TokenUsage`, `AgentSession::GetLastUsage`), ligne « Tokens: … » après la réponse. Rien n'est affiché si le serveur ne renvoie pas `usage` ; la partie cache seulement si le serveur la fournit. Pas affiché en cas d'erreur ou d'annulation. Commande `/tokens` : totaux depuis le début de la conversation (`AgentSession::GetTotalUsage`), y compris les échanges échoués, annulés ou retirés par `/undo` (tokens réellement consommés), remis à zéro par `/clear` ; plus la taille du contexte à la dernière requête (`TokenUsage::lastInput`).
-  - [ ] Remplacement multifichier
-  - [ ] Exécution de commande / script Lua
+  - [x] `replace_in_files`, `run_command`, `run_lua` (compilés ; à tester dans l'interface). Voir les fiches ci-dessus.
+  - [x] Outils exécutés dans un thread séparé (compilé ; à tester) :
+    - Un `std::thread` détaché par lot d'appels d'outils d'une réponse (`AgentSession::HandleToolCalls`), plutôt que le worker : le worker est unique et partagé (aperçu de Rechercher/Remplacer, marqueurs), une commande de 2 minutes le bloquerait.
+    - `ToolContext` est copié dans le thread (limites par valeur, plus de référence vers la session). Annulation par `std::shared_ptr<std::atomic<bool>> cancelled`, nouveau pour chaque échange ; Shift+Échap le met à vrai : le thread s'arrête après l'outil en cours (une commande en cours est tuée). Les résultats reviennent par `CallAfter`, seulement si `alive` est toujours vrai ; `OnToolCallsDone` poursuit la boucle.
+    - `AgentSession::IsBusy()` = requête HTTP en cours ou outils en cours.
+    - Accès aux documents et à l'éditeur uniquement sur le thread principal : `IsOpenInEditor`, `GetOpenFiles` (un seul aller-retour pour `search_files` / `replace_in_files`), `ReadTextFile`, `WriteTextFile` passent par `RunEDTSync`. Les outils surtout graphiques (`get_editor_context`, `open_in_editor`, `move_file`, `delete_file`) ont `AgentTool::mainThread` et s'exécutent entièrement via `RunEDTSync`.
+    - Confirmations via `RunEDTSync` ; le callback vérifie que la session existe encore (sinon « Arrêter »).
+    - Confirmation avec texte long (`ShowConfirmDetailsDialog` dans `AgentDialog.cpp`) : message, zone de texte en lecture seule qui a le focus, Autoriser / Refuser / Arrêter l'agent. Refuser par défaut pour `run_command` et `run_lua`.
+  - `search_files` a maintenant un paramètre `ignore_case` (défaut true).
+  - Corrigé au passage : `luabinding.hpp` utilisait `std::variant` sans inclure `<variant>`.
