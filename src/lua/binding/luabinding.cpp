@@ -14,7 +14,6 @@ return p;
 }
 
 void* luaL_checkutype  (lua_State* L, int idx, const char* tname) {
-if (lua_isnoneornil(L, idx)) return nullptr;
 void* ptr = luaL_testutype(L, idx, tname);
 if (ptr) return ptr;
 luaL_newmetatable(L, tname);
