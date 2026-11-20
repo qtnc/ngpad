@@ -1892,15 +1892,22 @@ constructor.</p>
 returned as it is read. It may not be encoded in UTF-8, and may even be
 binary data not humanly readable.</li>
 </ul>
-<h3 id="outputstreamwrite-data">outputStream:write (data)</h3>
-<p>Write content to the stream</p>
+<h3 id="outputstreamwrite-data-timeout0">outputStream:write (data,
+timeout=0)</h3>
+<p>Write content to the stream. When the stream can't take everything at
+once, as the standard input of a process whose pipe is full, wait until
+all the data is written.</p>
 <p><strong>Parameters:</strong></p>
 <ul>
 <li>data: string: data to write</li>
+<li>timeout: integer: the maximum amount of time (in miliseconds) to
+wait for the stream to accept more data, 0 or negative means
+infinite</li>
 </ul>
 <p><strong>Returns:</strong></p>
 <ul>
-<li>integer: number of bytes written</li>
+<li>integer: number of bytes written, less than the size of the data
+only in case of error or timeout</li>
 </ul>
 <h3 id="outputstreamwritefrom-input">outputStream:writeFrom (input)</h3>
 <p>Write all data read from an input stream</p>

@@ -66,9 +66,20 @@ static wxFileOffset oSeek (wxOutputStream& out, wxFileOffset pos, const std::str
 return out.SeekO(pos, modeFromString(mode));
 }
 
-static int oWrite (wxOutputStream& out, const std::string& s) {
-out.WriteAll(s.data(), s.size());
-return out.LastWrite();
+static size_t oWrite (wxOutputStream& out, const std::string& s, size_t timeout) {
+const char* data = s.data();
+size_t left = s.size(), total = 0;
+auto lastWriteTime = mtime();
+while (left>0) {
+size_t n = out.Write(data, left).LastWrite();
+data += n; left -= n; total += n;
+if (left==0 || !out.IsOk()) break;
+auto time = mtime();
+if (n>0) lastWriteTime = time;
+else if (timeout>0 && time-lastWriteTime>timeout) break;
+else Sleep(10);
+}
+return total;
 }
 
 static size_t iUnread (wxInputStream& in, const std::string& s) {
@@ -231,10 +242,11 @@ export int luaopen_OutputStream (lua_State* L) {
 lua_pushglobaltable(L);
 //T Output stream class
 Binding::LuaClass<wxOutputStream>(L, "OutputStream")
-//M Write content to the stream
+//M Write content to the stream. When the stream can't take everything at once, as the standard input of a process whose pipe is full, wait until all the data is written.
 //P data: string: nil: data to write
-//R integer: number of bytes written
-.method("write", &oWrite)
+//P timeout: integer: 0: the maximum amount of time (in miliseconds) to wait for the stream to accept more data, 0 or negative means infinite
+//R integer: number of bytes written, less than the size of the data only in case of error or timeout
+.method("write", &oWrite, {"data", "timeout"})
 //M Write all data read from an input stream
 //P input: InputStream: nil: input stream to read from
 .method("writeFrom", &oWriteFrom)
