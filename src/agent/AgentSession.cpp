@@ -5,6 +5,7 @@
 #include<unordered_map>
 #include<thread>
 #include<optional>
+#include<algorithm>
 #include <wx/filename.h>
 
 using json = nlohmann::json;
@@ -241,6 +242,48 @@ error = format("{}: {}", GetTranslation("AgentInvalidResponse"), ex.what());
 FailExchange(error);
 }
 
+// "Always allow" in a tool confirmation: the grant is written in the entry of the agent in agents.json
+// (the grant for the current session is recorded by ToolContext::Ask)
+static void SavePermanentGrant (const std::string& agentName, const ConfirmRequest& request) {
+using ordered_json = nlohmann::ordered_json;
+std::string value = U(wxString(request.grantValue).Trim(true).Trim(false));
+if (value.empty() || request.grant==GrantKind::None) return;
+auto appendUnique = [&](ordered_json& agent, const std::string& key){
+if (!agent.contains(key) || !agent[key].is_array()) agent[key] = ordered_json::array();
+auto& list = agent[key];
+if (std::find(list.begin(), list.end(), ordered_json(value))==list.end()) list.push_back(value);
+};
+// tools: an array becomes an object; without tools in the agent, those of defaults must still apply
+auto allowTool = [&](ordered_json& agent, const ordered_json& defaults){
+auto toObject = [](const ordered_json& names){
+ordered_json o = ordered_json::object();
+for (auto& n: names) if (n.is_string()) o[n.get<std::string>()] = "default";
+return o;
+};
+if (agent.contains("tools")) {
+auto& t = agent["tools"];
+if (t.is_array()) t = toObject(t);
+t[value] = "allow";
+}
+else if (defaults.contains("tools") && defaults["tools"].is_array()) {
+agent["tools"] = toObject(defaults["tools"]);
+agent["tools"][value] = "allow";
+}
+else if (defaults.contains("tools") && defaults["tools"].is_object()) agent["tools"] = ordered_json { {value, "allow"} };
+else agent["tools"] = ordered_json { {"*", "default"}, {value, "allow"} };
+};
+wxString error;
+bool ok = AgentConfig::UpdateEntry(agentName, [&](ordered_json& agent, const ordered_json& defaults){
+switch(request.grant){
+case GrantKind::Tool: allowTool(agent, defaults); break;
+case GrantKind::Command: appendUnique(agent, "allowedCommands"); break;
+case GrantKind::ReadPath: appendUnique(agent, "readablePaths"); break;
+case GrantKind::WritePath: appendUnique(agent, "writablePaths"); break;
+default: break;
+}}, error);
+if (!ok) wxMessageBox(error, MSG("Error"), wxICON_ERROR | wxOK);
+}
+
 void AgentSession::HandleToolCalls (const json& message) {
 if (++toolIterations > config.maxToolIterations) {
 FailExchange(format(GetTranslation("AgentTooManyToolCalls"), config.maxToolIterations));
@@ -256,10 +299,13 @@ ToolContext context(root, config.limits);
 // Called on the main thread: the dialog may have been closed, or the conversation cleared, in the meantime
 std::weak_ptr<bool> confirmAlive = alive;
 auto confirm = confirmCallback;
-if (confirm) context.confirm = [confirmAlive, confirm](ConfirmRequest& request){
+std::string agentName = config.name;
+if (confirm) context.confirm = [confirmAlive, confirm, agentName](ConfirmRequest& request){
 auto lock = confirmAlive.lock();
 if (!lock || !*lock) return ToolConfirmation::Stop;
-return confirm(request);
+auto answer = confirm(request);
+if (answer==ToolConfirmation::AllowAlways) SavePermanentGrant(agentName, request);
+return answer;
 };
 context.grants = grants;
 context.shell = config.shell;

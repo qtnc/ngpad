@@ -122,7 +122,7 @@ For `replace_in_files`, a single confirmation shows the list of modified files w
   - for a modification in the workspace, every use of the same tool, for example all modifications made by `edit_file`;
   - for a command, all commands starting with the text given in the field below the command, by default the program and its subcommand, for example `git diff`. You can modify it before answering, with the same rules as `allowedCommands` (see the Configuration section): for example, a command containing `&` or `>` still always asks;
   - for a file outside of the workspace, the file or directory given in the field, by default the directory which contains the file. You can modify it before answering, with the same rules as `readablePaths` and `writablePaths`. When the agent wanted to read, reading is allowed; when it wanted to modify, reading and modifying are allowed.
-- Always allow: currently the same as Allow for this session.
+- Always allow: the same as Allow for this session, and the permission is also saved in the entry of the agent in `config/agents.json`: `"tool": "allow"` in `tools`, or the command or path added to `allowedCommands`, `readablePaths` or `writablePaths`. Agents already open with the same configuration only see it once closed and opened again. Saving rewrites the file: its comments are lost, and its previous version is kept in `config/agents.json.bak`.
 - Deny: the modification isn't made. The agent is informed of your refusal and continues; it should ask you what to do instead.
 - Stop the agent (or Escape): the modification isn't made, and the agent stops immediately, as if the request was cancelled. Modifications allowed before are kept.
 
@@ -135,7 +135,7 @@ If the agent window is hidden when a confirmation is needed, it is shown again f
 Agents are configured in the file `config/agents.json`. As for other configuration files, it is searched first in the user configuration directory, and then in the directory of the application.
 An example is given in `config/agents.example.json`: copy it to `config/agents.json` and adapt it.
 
-The file contains an array of objects, one per agent. Comments are allowed.
+The file contains an array of objects, one per agent. Comments are allowed, but they are lost when you choose Always allow in a confirmation, since the file is then rewritten (see Confirmations above).
 Only `name` and `url` are required.
 
 The file can also be an object with two keys: `agents`, the array of agents, and `defaults`, an object giving values common to all agents. Any key of an agent can be given in `defaults`. When an agent gives the same key, its own value is used; when both values are objects, such as `limits` or `headers`, they are merged key by key, the agent still winning.

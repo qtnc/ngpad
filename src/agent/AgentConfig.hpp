@@ -4,6 +4,7 @@
 #include "nlohmann/json.hpp"
 #include<vector>
 #include<map>
+#include<functional>
 
 #define AGENTS_CONFIG_FILENAME "config/agents.json"
 #define DEFAULT_AGENT_SHELL "cmd /s /c \"{command}\""
@@ -39,6 +40,10 @@ AgentLimits limits;
 
 static AgentConfig FromJson (const nlohmann::json& j);
 static bool LoadAll (std::vector<AgentConfig>& configs, wxString& error);
+// Modify the entry of an agent in agents.json, found by its name. The order of keys is kept, but comments are lost.
+// The previous file is kept as agents.json.bak. update receives the entry, and the defaults (empty object if none).
+typedef std::function<void(nlohmann::ordered_json& agent, const nlohmann::ordered_json& defaults)> EntryUpdater;
+static bool UpdateEntry (const std::string& agentName, const EntryUpdater& update, wxString& error);
 };
 
 #endif

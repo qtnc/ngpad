@@ -1,7 +1,10 @@
 #include "AgentConfig.hpp"
 #include "../app/App.hpp"
 #include "../common/println.hpp"
+#include <wx/filefn.h>
+#include <wx/log.h>
 #include<fstream>
+#include<iterator>
 #include<algorithm>
 
 using json = nlohmann::json;
@@ -76,6 +79,64 @@ c.limits.commandTimeout = l.value("commandTimeout", c.limits.commandTimeout);
 c.limits.commandMaxTimeout = l.value("commandMaxTimeout", c.limits.commandMaxTimeout);
 }
 return c;
+}
+
+bool AgentConfig::UpdateEntry (const std::string& agentName, const EntryUpdater& update, wxString& error) {
+using ordered_json = nlohmann::ordered_json;
+wxString path = wxGetApp().FindAppFile(AGENTS_CONFIG_FILENAME);
+if (path.empty()) {
+error = U(format(GetTranslation("AgentConfigNotFound"), AGENTS_CONFIG_FILENAME));
+return false;
+}
+try {
+std::string content;
+{
+std::ifstream in(UFN(path), std::ios::binary);
+if (!in) throw std::runtime_error("unable to read the file");
+content.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+}
+bool crlf = content.find("\r\n")!=std::string::npos;
+ordered_json j = ordered_json::parse(content, nullptr, true, true);
+ordered_json* agents = nullptr;
+ordered_json defaults = ordered_json::object();
+if (j.is_array()) agents = &j;
+else if (j.is_object() && j.contains("agents") && j["agents"].is_array()) {
+agents = &j["agents"];
+if (j.contains("defaults") && j["defaults"].is_object()) defaults = j["defaults"];
+}
+else throw std::runtime_error("root element must be an array of agents, or an object with an \"agents\" array");
+ordered_json* entry = nullptr;
+for (auto& a: *agents) {
+if (a.is_object() && a.contains("name") && a["name"].is_string() && a["name"].get<std::string>()==agentName) {
+entry = &a;
+break;
+}}
+if (!entry) throw std::runtime_error(format("agent \"{}\" not found", agentName));
+update(*entry, defaults);
+// No indentation, as the files written by hand
+std::string out = j.dump(0) + "\n";
+if (crlf) {
+std::string converted;
+for (char c: out) {
+if (c=='\n') converted += '\r';
+converted += c;
+}
+out = std::move(converted);
+}
+wxString tmp = path + ".tmp", backup = path + ".bak";
+{
+std::ofstream o(UFN(tmp), std::ios::binary | std::ios::trunc);
+o << out;
+if (!o) throw std::runtime_error("unable to write the file");
+}
+wxLogNull noLog;
+wxCopyFile(path, backup, true);
+if (!wxRenameFile(tmp, path, true)) throw std::runtime_error("unable to replace the file");
+} catch (std::exception& e) {
+error = U(format(GetTranslation("AgentConfigSaveError"), U(path), e.what()));
+return false;
+}
+return true;
 }
 
 // Keys whose array values from defaults are concatenated with those of the agent, instead of being replaced
