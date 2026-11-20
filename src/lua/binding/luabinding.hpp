@@ -173,7 +173,7 @@ template <class T> struct LuaGetSlot<T*, typename std::enable_if< std::is_class<
 typedef T* returnType;
 static inline bool check (lua_State* L, int idx) { return !!luaL_testutype(L, idx, UserObjectTrait<T>::typeTag()); }
 static inline T* get (lua_State* L, int idx) {
-void* ptr = luaL_checkutype(L, idx, UserObjectTrait<T>::typeTag());
+void* ptr = luaL_testutype(L, idx, UserObjectTrait<T>::typeTag());
 return ptr? UserObjectTrait<T>::getPointer(ptr) :nullptr;
 }};
 

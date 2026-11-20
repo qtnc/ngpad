@@ -2,24 +2,32 @@
 #include<iostream>
 using namespace std;
 
-void* luaL_testutype  (lua_State* L, int idx, const char* tname) {
-if (lua_type(L, idx)!=LUA_TUSERDATA || !luaL_getmetatable(L, tname) || !lua_getmetatable(L, idx)) return nullptr;
+static inline void* testutypeError (lua_State* L, int idx, const char* tname) {
+lua_settop(L, lua_absindex(L, idx));
+luaL_newmetatable(L, tname);
+lua_getfield(L, -1, "__name");
+luaL_typeerror(L, idx, lua_tostring(L, -1));
+return nullptr;
+}
+
+static inline void* testutype  (lua_State* L, int idx, const char* tname, bool required) {
+if (!required && lua_isnoneornil(L, idx)) return nullptr;
+if (lua_type(L, idx)!=LUA_TUSERDATA || !luaL_getmetatable(L, tname) || !lua_getmetatable(L, idx)) return testutypeError(L, idx, tname);
 void* p = const_cast<void*>(lua_topointer(L, idx));
 while (p && !lua_rawequal(L, -1, -2)) {
 if (luaL_getmetafield(L, -1, "__index")) lua_remove(L, -2);
-else p=nullptr;
+else return testutypeError(L, idx, tname);
 }
 lua_pop(L, 2);
 return p;
 }
 
+void* luaL_testutype  (lua_State* L, int idx, const char* tname) {
+return testutype(L, idx, tname, false);
+}
+
 void* luaL_checkutype  (lua_State* L, int idx, const char* tname) {
-void* ptr = luaL_testutype(L, idx, tname);
-if (ptr) return ptr;
-luaL_newmetatable(L, tname);
-lua_getfield(L, -1, "__name");
-luaL_typeerror(L, idx, lua_tostring(L, -1));
-return nullptr;
+return testutype(L, idx, tname, true);
 }
 
 namespace Binding {
