@@ -106,7 +106,7 @@ There is currently no protection against a script which never ends.
 
 ### Confirmations
 
-Each modification made by `edit_file`, `write_file`, `replace_in_files`, `move_file` or `delete_file` must be confirmed, as well as each command and each Lua script. The confirmation tells which file is concerned, and if the modification will be made in the editor or on disk.
+By default, each modification made by `edit_file`, `write_file`, `replace_in_files`, `move_file` or `delete_file` must be confirmed, as well as each command and each Lua script. The `tools` setting can change it (see Tools in the Configuration section). The confirmation tells which file is concerned, and if the modification will be made in the editor or on disk.
 For `replace_in_files`, a single confirmation shows the list of modified files with the number of replacements in each of them, and a few examples. For `run_command` and `run_lua`, the command or the code is shown in a text field, which has the focus so that you can read it before answering.
 
 - Allow: the modification is made, and the agent continues.
@@ -149,7 +149,7 @@ systemPrompt | string | | Instructions given to the model at the beginning of th
 temperature | number | | Sampling temperature. When not specified, the default of the server is used
 maxTokens | integer | | Maximum number of tokens of an answer. When not specified, the default of the server is used
 timeout | integer | 600 | Maximum time to wait for an answer, in seconds. Local models can be very slow
-tools | array or "all" | all | Tools the agent can use (see below)
+tools | array or object | all tools | Tools the agent can use, and their permissions (see below)
 shell | string | cmd /s /c "{command}" | Command line used by `run_command`. `{command}` is replaced by the command given by the agent; without `{command}`, the command is added at the end. It can also be used to run commands through a program filtering their output, for example to reduce the number of tokens
 maxToolIterations | integer | 15 | Maximum number of successive tool call rounds for a single message. When exceeded, the agent stops with an error
 limits | object | | Limits on the size of tool results (see below)
@@ -157,11 +157,27 @@ extraBody | object | | Additional parameters added as is to the body of each req
 
 ### Tools
 
-`tools` is either the string `"all"`, or an array of tool names. When it isn't specified, all tools are available.
-For example, `"tools": ["list_files", "read_file", "search_files", "get_editor_context"]` gives a read-only agent which can't modify any file.
-An array containing `"all"` is the same as `"all"`. An empty array disables all tools, the agent can then only answer your messages.
+`tools` tells which tools the agent can use, and whether you have to confirm what they do. A permission is one of:
 
-Small models often work better with a few tools. Tools which aren't enabled are never sent to the model, and are refused if the model tries to call them anyway.
+Permission | Meaning
+-----|-----
+`allow` | The tool is used without confirmation
+`ask` | Each use of the tool must be confirmed (see Confirmations above)
+`deny` | The tool isn't available
+`default` | The built-in permission of the tool: `allow` for tools without side effects (`list_files`, `read_file`, `search_files`, `get_editor_context`, `open_in_editor`), `ask` for all the others
+
+`tools` can be given in three ways:
+
+- Not specified: all tools are available, with their built-in permission.
+- An array of tool names: only these tools are available, with their built-in permission. For example, `"tools": ["list_files", "read_file", "search_files", "get_editor_context"]` gives a read-only agent. An empty array disables all tools: the agent can then only answer your messages.
+- An object giving the permission of each tool, for example `"tools": { "*": "ask", "edit_file": "allow", "run_lua": "deny" }`. The key `"*"` stands for all tools which aren't listed. Without `"*"`, tools which aren't listed aren't available.
+
+Two exceptions apply to `"*"`:
+
+- It never changes the permission of tools without side effects: they stay allowed. So `"tools": { "*": "deny" }` gives a read-only agent. To make them ask or deny, list them explicitly.
+- It never allows `run_command` and `run_lua` without confirmation, since commands and Lua scripts can do absolutely anything your user account can do. With `"*": "allow"`, they still ask. Only `"run_command": "allow"` or `"run_lua": "allow"`, given explicitly, removes their confirmation: do it only if you fully trust the model, or if the editor runs in an isolated environment such as a virtual machine.
+
+Small models often work better with a few tools. Tools which aren't available are never sent to the model, and are refused if the model tries to call them anyway.
 
 ### Limits
 
@@ -187,7 +203,7 @@ When a limit is reached, the result tells the agent how to get the rest, for exa
 "model": "mistralai/ministral-3-3b",
 "systemPrompt": "You are a text edition and coding agent. Don't guess the content of a file before reading it. Reply concisely to the user in his language.",
 "temperature": 0.2,
-"tools": "all",
+"tools": { "*": "ask", "edit_file": "allow", "write_file": "allow" },
 "limits": { "readMaxLines": 300 }
 },
 {

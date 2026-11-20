@@ -4,6 +4,7 @@
 #include "../common/println.hpp"
 #include<unordered_map>
 #include<thread>
+#include<optional>
 #include <wx/filename.h>
 
 using json = nlohmann::json;
@@ -123,7 +124,7 @@ std::string systemPrompt = config.systemPrompt;
 if (!tools.empty()) {
 if (!systemPrompt.empty()) systemPrompt += "\n\n";
 systemPrompt += format("The workspace root is the folder '{}'. All file paths are relative to it and use '/' as separator.", U(GetWorkspaceName(root)));
-if (config.IsToolEnabled("get_editor_context")) systemPrompt += " The user works in a text editor: when they refer to the current file, the selection, the cursor or 'here', call get_editor_context.";
+if (AgentTools::IsEnabled("get_editor_context", config)) systemPrompt += " The user works in a text editor: when they refer to the current file, the selection, the cursor or 'here', call get_editor_context.";
 body["tools"] = tools;
 }
 json msgs = json::array();
@@ -256,16 +257,18 @@ return confirm(message, details, denyByDefault);
 context.shell = config.shell;
 context.cancelled = cancelled;
 context.luaEnv = luaEnv;
-std::vector<bool> enabled;
+// Permissions are computed here, on the main thread, from the configuration; nullopt: unknown tool
+std::vector<std::optional<ToolPermission>> permissions;
 for (auto& call: calls) {
 std::string name = call.contains("function") && call["function"].is_object()? call["function"].value("name", "") : "";
-enabled.push_back(config.IsToolEnabled(name));
+auto tool = AgentTools::Find(name);
+permissions.push_back(tool? std::optional<ToolPermission>(AgentTools::GetPermission(*tool, config)) : std::nullopt);
 }
 // Tools run in their own thread, so that the interface stays responsive during long commands or searches.
 // Results come back to the main thread with CallAfter, only if the session still exists.
 toolsRunning = true;
 std::weak_ptr<bool> weakAlive = alive;
-std::thread([this, weakAlive, calls, enabled, context](){
+std::thread([this, weakAlive, calls, permissions, context](){
 std::vector<ToolResult> results;
 bool stopped = false;
 for (size_t i=0; i<calls.size() && !context.IsCancelled(); i++) {
@@ -278,8 +281,8 @@ if (function.contains("arguments")) {
 auto& a = function["arguments"];
 arguments = a.is_string()? a.get<std::string>() : a.dump();
 }}
-// The model may call a tool that wasn't offered to it: never execute a disabled tool
-ToolResult result = enabled[i]? AgentTools::Execute(name, arguments, context) : ToolResult::Error(format("Unknown tool: {}. Only use the tools you were given.", name));
+// The model may call a tool that wasn't offered to it: Execute never runs a denied tool
+ToolResult result = permissions[i]? AgentTools::Execute(name, arguments, context, *permissions[i]) : ToolResult::Error(format("Unknown tool: {}. Only use the tools you were given.", name));
 results.push_back(result);
 json args;
 try { args = json::parse(arguments); } catch (...) { args = arguments; }

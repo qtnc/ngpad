@@ -6,6 +6,17 @@
 
 using json = nlohmann::json;
 
+static ToolPermission ParseToolPermission (const json& value, const std::string& agent, const std::string& tool) {
+if (value.is_string()) {
+auto s = value.get<std::string>();
+if (s=="allow") return ToolPermission::Allow;
+if (s=="ask") return ToolPermission::Ask;
+if (s=="deny") return ToolPermission::Deny;
+if (s=="default") return ToolPermission::Default;
+}
+throw std::runtime_error(format("agent \"{}\", tool \"{}\": invalid permission {}, expected \"allow\", \"ask\", \"deny\" or \"default\"", agent, tool, value.dump()));
+}
+
 AgentConfig AgentConfig::FromJson (const json& j) {
 AgentConfig c;
 c.name = j.value("name", "");
@@ -23,14 +34,22 @@ if (j.contains("extraBody") && j["extraBody"].is_object()) c.extraBody = j["extr
 else c.extraBody = json::object();
 if (!c.url.empty() && c.url.back()!='/') c.url += '/';
 c.maxToolIterations = j.value("maxToolIterations", 15);
-// "tools": "all", or an array containing "all", or no tools key at all, enable all available tools
-if (j.contains("tools") && j["tools"].is_array()) {
-c.toolsSpecified = true;
-for (auto& t: j["tools"]) if (t.is_string()) c.tools.push_back(t.get<std::string>());
-if (std::find(c.tools.begin(), c.tools.end(), "all")!=c.tools.end()) {
-c.toolsSpecified = false;
-c.tools.clear();
+// "tools": absent = all tools; array = only these tools; object = permission of each listed tool, "*" for the other ones
+if (j.contains("tools")) {
+auto& t = j["tools"];
+if (t.is_array()) {
+c.toolsListClosed = true;
+for (auto& name: t) if (name.is_string()) c.toolSettings[name.get<std::string>()] = ToolPermission::Default;
+}
+else if (t.is_object()) {
+c.toolsListClosed = !t.contains("*");
+for (auto& [name, value]: t.items()) {
+auto permission = ParseToolPermission(value, c.name, name);
+if (name=="*") c.otherToolsSetting = permission;
+else c.toolSettings[name] = permission;
 }}
+else throw std::runtime_error(format("agent \"{}\": \"tools\" must be an array of tool names, or an object giving the permission of each tool", c.name));
+}
 if (j.contains("limits") && j["limits"].is_object()) {
 auto& l = j["limits"];
 c.limits.readMaxLines = l.value("readMaxLines", c.limits.readMaxLines);
@@ -42,11 +61,6 @@ c.limits.commandTimeout = l.value("commandTimeout", c.limits.commandTimeout);
 c.limits.commandMaxTimeout = l.value("commandMaxTimeout", c.limits.commandMaxTimeout);
 }
 return c;
-}
-
-bool AgentConfig::IsToolEnabled (const std::string& name) const {
-if (!toolsSpecified) return true;
-return std::find(tools.begin(), tools.end(), name)!=tools.end();
 }
 
 // Keys whose array values from defaults are concatenated with those of the agent, instead of being replaced

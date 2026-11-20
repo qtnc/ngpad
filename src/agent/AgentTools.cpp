@@ -86,6 +86,7 @@ return false;
 }
 
 ToolConfirmation ToolContext::Confirm (const wxString& message, bool denyByDefault, const wxString& details) const {
+if (permission==ToolPermission::Allow) return ToolConfirmation::Allow;
 if (!confirm) return ToolConfirmation::Deny;
 return RunEDTSync([&](){ return confirm(message, details, denyByDefault); });
 }
@@ -824,6 +825,10 @@ json::parse(R"({
 })"),
 ToolRunLua, true
 });
+for (auto& t: tools) {
+t.readOnly = t.name=="list_files" || t.name=="read_file" || t.name=="search_files" || t.name=="get_editor_context" || t.name=="open_in_editor";
+t.requiresExplicitAllow = t.name=="run_command" || t.name=="run_lua";
+}
 }
 
 std::vector<AgentTool>& AgentTools::GetAll () {
@@ -854,13 +859,30 @@ return nullptr;
 json AgentTools::GetDefinitions (const AgentConfig& config) {
 json defs = json::array();
 for (auto& t: GetAll()) {
-if (!config.IsToolEnabled(t.name)) continue;
+if (GetPermission(t, config)==ToolPermission::Deny) continue;
 defs.push_back({ {"type", "function"}, {"function", { {"name", t.name}, {"description", t.description}, {"parameters", t.parameters} }} });
 }
 return defs;
 }
 
-ToolResult AgentTools::Execute (const std::string& name, const std::string& arguments, const ToolContext& context) {
+ToolPermission AgentTools::GetPermission (const AgentTool& tool, const AgentConfig& config) {
+ToolPermission builtin = tool.readOnly? ToolPermission::Allow : ToolPermission::Ask;
+auto it = config.toolSettings.find(tool.name);
+if (it!=config.toolSettings.end()) return it->second==ToolPermission::Default? builtin : it->second;
+if (config.toolsListClosed) return ToolPermission::Deny;
+// Value of "*": never applies to tools without side effects, and doesn't allow commands and Lua without confirmation
+ToolPermission p = config.otherToolsSetting;
+if (tool.readOnly || p==ToolPermission::Default) return builtin;
+if (p==ToolPermission::Allow && tool.requiresExplicitAllow) return ToolPermission::Ask;
+return p;
+}
+
+bool AgentTools::IsEnabled (const std::string& name, const AgentConfig& config) {
+auto tool = Find(name);
+return tool && GetPermission(*tool, config)!=ToolPermission::Deny;
+}
+
+ToolResult AgentTools::Execute (const std::string& name, const std::string& arguments, const ToolContext& baseContext, ToolPermission permission) {
 ToolResult result;
 auto tool = Find(name);
 if (!tool) {
@@ -868,6 +890,9 @@ std::string names;
 for (auto& t: GetAll()) names += (names.empty()? "" : ", ") + t.name;
 return ToolResult::Error(format("Unknown tool: {}. Available tools: {}", name, names));
 }
+if (permission==ToolPermission::Deny) return ToolResult::Error(format("The tool {} is disabled by the configuration. Only use the tools you were given.", name));
+ToolContext context = baseContext;
+context.permission = permission;
 println("Agent tool call: {} {}", name, arguments);
 json args;
 try {

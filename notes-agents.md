@@ -175,7 +175,7 @@ Conception discutée et validée le 2026-11-20.
 
 ### Permissions des outils (clé `tools`)
 - Valeurs : `allow` (sans confirmation), `ask` (confirmer), `deny` (outil absent), `default` (permission intégrée de l'outil).
-- Chaque outil a une **permission intégrée** (`AgentTool::defaultPermission`) : `allow` pour les outils sans effet (`list_files`, `read_file`, `search_files`, `get_editor_context`, `open_in_editor`), `ask` pour les autres.
+- Chaque outil a une **permission intégrée** (déduite de `AgentTool::readOnly`) : `allow` pour les outils sans effet (`list_files`, `read_file`, `search_files`, `get_editor_context`, `open_in_editor`), `ask` pour les autres.
 - Une seule clé `tools` (pas de clé `permissions` séparée), trois formes :
   - **absente** : tous les outils, permission intégrée ;
   - **tableau de noms** : seulement ces outils, permission intégrée (`[]` = aucun outil) ;
@@ -319,3 +319,9 @@ Menu contextuel (pas de barre de menus dans le dialogue) : copier, tout sélecti
   - Corrigé au passage : `luabinding.hpp` utilisait `std::variant` sans inclure `<variant>`.
 - [ ] Autorisations : conception validée (section « Autorisations »), implémentation selon le plan en 7 points.
   - [x] 1. `defaults` et fusion (`MergeDefaults` dans `AgentConfig.cpp`, compilé ; à tester). La concaténation des trois listes blanches est déjà en place ; la doc ne la décrira qu'avec les listes elles-mêmes.
+  - [x] 2. Nouvelle forme de `tools` (compilé ; à tester).
+    - `AgentConfig` : `toolSettings` (map nom → `ToolPermission`), `toolsListClosed`, `otherToolsSetting` (`"*"`). Valeur invalide ou `tools` qui n'est ni tableau ni objet → erreur de chargement de la config. `IsToolEnabled` supprimé.
+    - `AgentTool::readOnly` et `AgentTool::requiresExplicitAllow` (`run_command`, `run_lua`), fixés après l'enregistrement des outils intégrés.
+    - `AgentTools::GetPermission` calcule la permission effective (jamais `Default`) ; `AgentTools::IsEnabled`. Les permissions sont calculées sur le thread principal dans `HandleToolCalls` et passées à `Execute`, qui copie le contexte et y met `ToolContext::permission`.
+    - `ToolContext::Confirm` renvoie directement `Allow` si la permission est `allow` : les handlers n'ont pas changé. À revoir aux étapes 3-4 : un chemin hors racine devra demander même en `allow` (paramètre de `Confirm` qui force la demande).
+    - Outil appelé mais `deny` : « The tool X is disabled by the configuration » ; outil inconnu : message inchangé, sans liste des outils.

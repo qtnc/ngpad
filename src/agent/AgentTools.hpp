@@ -22,6 +22,7 @@ AgentLimits limits;
 std::string shell;
 std::vector<wxString> ignoredDirs, excludedExtensions;
 ConfirmCallback confirm;
+ToolPermission permission = ToolPermission::Ask; // Effective permission of the tool being executed: Allow skips confirmations
 std::shared_ptr<std::atomic<bool>> cancelled;
 std::shared_ptr<LuaEnvironment> luaEnv;
 
@@ -31,7 +32,7 @@ std::string GetRelativePath (const wxString& absPath, bool isDir = false) const;
 bool IsIgnoredDir (const wxString& name) const;
 bool IsExcludedFile (const wxString& name) const;
 bool IsCancelled () const { return cancelled && *cancelled; }
-// Ask the user on the main thread. details: long text (command, script...) shown in a read-only text field
+// Ask the user on the main thread, unless the tool is allowed. details: long text (command, script...) shown in a read-only text field
 ToolConfirmation Confirm (const wxString& message, bool denyByDefault = false, const wxString& details = wxEmptyString) const;
 };
 
@@ -52,6 +53,8 @@ nlohmann::json parameters;
 Handler handler;
 bool modifiesFiles = false;
 bool mainThread = false; // The handler works mostly with documents and the GUI: run it entirely on the main thread
+bool readOnly = false; // No side effect: allowed by default, and not affected by "*" in the tools setting
+bool requiresExplicitAllow = false; // Can do anything (commands, Lua): allowed without confirmation only by "allow" on its own key, never by "*"
 };
 
 // Registry of the tools an agent can use.
@@ -62,8 +65,11 @@ static std::vector<AgentTool>& GetAll ();
 static void Register (const AgentTool& tool);
 static const AgentTool* Find (const std::string& name);
 static nlohmann::json GetDefinitions (const AgentConfig& config);
-// Can be called from any thread
-static ToolResult Execute (const std::string& name, const std::string& arguments, const ToolContext& context);
+// Effective permission of a tool for an agent: Allow, Ask or Deny (never Default). Deny means the tool isn't available at all
+static ToolPermission GetPermission (const AgentTool& tool, const AgentConfig& config);
+static bool IsEnabled (const std::string& name, const AgentConfig& config);
+// Can be called from any thread. permission: result of GetPermission
+static ToolResult Execute (const std::string& name, const std::string& arguments, const ToolContext& context, ToolPermission permission);
 };
 
 // Valid UTF-8 from bytes in UTF-8 or else in the given encoding; CRLF are converted to LF

@@ -3,6 +3,7 @@
 #include "../common/wxUtils.hpp"
 #include "nlohmann/json.hpp"
 #include<vector>
+#include<map>
 
 #define AGENTS_CONFIG_FILENAME "config/agents.json"
 #define DEFAULT_AGENT_SHELL "cmd /s /c \"{command}\""
@@ -17,6 +18,9 @@ int commandTimeout = 60; // Seconds
 int commandMaxTimeout = 600;
 };
 
+// Default: the built-in permission of the tool (allow for tools without side effects, ask for the others)
+enum class ToolPermission { Default, Allow, Ask, Deny };
+
 struct AgentConfig {
 std::string name, api, url, model, systemPrompt, shell;
 nlohmann::json headers, extraBody;
@@ -24,11 +28,12 @@ double temperature = -1;
 int maxTokens = -1;
 int timeout = 600;
 int maxToolIterations = 15;
-bool toolsSpecified = false;
-std::vector<std::string> tools;
+// "tools" key: value given to each listed tool, and to the other tools ("*"). Without "*", tools not listed are absent.
+// The effective permission of a tool is computed by AgentTools::GetPermission.
+std::map<std::string, ToolPermission> toolSettings;
+bool toolsListClosed = false;
+ToolPermission otherToolsSetting = ToolPermission::Default;
 AgentLimits limits;
-
-bool IsToolEnabled (const std::string& name) const;
 
 static AgentConfig FromJson (const nlohmann::json& j);
 static bool LoadAll (std::vector<AgentConfig>& configs, wxString& error);
