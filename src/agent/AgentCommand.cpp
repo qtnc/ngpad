@@ -63,6 +63,49 @@ return ToValidUTF8(head, conv) + format("\n[... {} bytes of output not shown ...
 }
 };
 
+static char AsciiLower (char c) {
+return c>='A' && c<='Z'? c + ('a' - 'A') : c;
+}
+
+// Whether the glob pattern matches the beginning of text, up to its end or a whitespace (word boundary).
+// '*' matches any sequence of characters, spaces included, and '?' a single (UTF-8) character. Case-insensitive for ASCII letters.
+static bool GlobMatchesCommandStart (const std::string& pattern, const std::string& text) {
+size_t n = text.size();
+// reach[i]: the part of the pattern processed so far matches text[0..i)
+std::vector<char> reach(n+1, 0), next(n+1);
+reach[0] = 1;
+for (char c: pattern) {
+std::fill(next.begin(), next.end(), 0);
+if (c=='*') {
+bool on = false;
+for (size_t i=0; i<=n; i++) next[i] = on = on || reach[i];
+}
+else if (c=='?') {
+for (size_t i=0; i<n; i++) {
+if (!reach[i]) continue;
+size_t j = i+1;
+while (j<n && (static_cast<unsigned char>(text[j]) & 0xC0)==0x80) j++;
+next[j] = 1;
+}}
+else {
+for (size_t i=0; i<n; i++) if (reach[i] && AsciiLower(text[i])==AsciiLower(c)) next[i+1] = 1;
+}
+reach.swap(next);
+}
+for (size_t i=0; i<=n; i++) if (reach[i] && (i==n || text[i]==' ' || text[i]=='\t')) return true;
+return false;
+}
+
+bool IsAllowedCommand (const std::string& command, const std::vector<std::string>& patterns) {
+size_t start = command.find_first_not_of(" \t"), end = command.find_last_not_of(" \t");
+if (start==std::string::npos) return false;
+std::string cmd = command.substr(start, end - start + 1);
+// Chaining, pipes, redirections, escapes and variable expansions of cmd, PowerShell and Unix shells: always ask
+if (cmd.find_first_of("&|<>^%;`$\r\n")!=std::string::npos) return false;
+for (auto& pattern: patterns) if (!pattern.empty() && GlobMatchesCommandStart(pattern, cmd)) return true;
+return false;
+}
+
 static std::string BuildCommandLine (const std::string& shell, const std::string& command) {
 std::string cmd = shell.empty()? DEFAULT_AGENT_SHELL : shell;
 size_t pos = cmd.find("{command}");
@@ -83,10 +126,12 @@ wxString cwd;
 if (!context.ResolvePath(cwdArg, cwd, error)) return ToolResult::Error(error);
 if (!wxDirExists(cwd)) return ToolResult::Error(format("Directory not found: {}. cwd must be a directory of the workspace.", cwdArg));
 std::string relCwd = context.GetRelativePath(cwd, true);
+if (!IsAllowedCommand(command, context.allowedCommands)) {
 wxString message = U(format(GetTranslation("AgentConfirmCommand"), relCwd.empty()? "/" : relCwd, timeout));
 auto answer = context.Confirm(message, true, U(command));
 if (answer==ToolConfirmation::Stop) return ToolResult::Stop();
 if (answer!=ToolConfirmation::Allow) return ToolResult::Error("The user denied running this command. Don't retry it: ask the user what to do instead.");
+}
 
 std::string cmdline = BuildCommandLine(context.shell, command);
 println("Agent command: {} (in {})", cmdline, U(cwd));

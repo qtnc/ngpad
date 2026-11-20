@@ -255,6 +255,7 @@ if (!lock || !*lock) return ToolConfirmation::Stop;
 return confirm(message, details, denyByDefault);
 };
 context.shell = config.shell;
+context.allowedCommands = config.allowedCommands;
 context.cancelled = cancelled;
 context.luaEnv = luaEnv;
 // Permissions are computed here, on the main thread, from the configuration; nullopt: unknown tool

@@ -91,7 +91,7 @@ When a file is deleted by `delete_file`, the corresponding open tabs are closed 
 ### Commands
 
 `run_command` runs a command line through the shell given by the `shell` setting of the agent, by default `cmd /s /c "{command}"`. The working directory is the workspace root, or one of its subdirectories chosen by the agent.
-Note that a command can do anything your user account can do, including accessing files outside of the workspace: always read it before allowing it.
+Note that a command can do anything your user account can do, including accessing files outside of the workspace: always read it before allowing it. Commands which don't need a confirmation can be listed in `allowedCommands` (see the Configuration section).
 
 - The command can't read any input, and no window is shown.
 - It is killed, with all the processes it started, when it runs longer than its timeout (`commandTimeout` and `commandMaxTimeout` limits), or when you cancel the work of the agent with Shift+Escape.
@@ -138,6 +138,8 @@ The file can also be an object with two keys: `agents`, the array of agents, and
 
 Here, both agents have a timeout of 300 seconds and read at most 300 lines; the second one also lists at most 100 entries.
 
+`allowedCommands` is an exception: the commands given in `defaults` and those of the agent are added together, the agent can run all of them.
+
 Key | Value type | Default value | Description
 -----|-----|-----|-----
 name | string | | Name of the agent, shown in the window title and when choosing an agent
@@ -150,6 +152,7 @@ temperature | number | | Sampling temperature. When not specified, the default o
 maxTokens | integer | | Maximum number of tokens of an answer. When not specified, the default of the server is used
 timeout | integer | 600 | Maximum time to wait for an answer, in seconds. Local models can be very slow
 tools | array or object | all tools | Tools the agent can use, and their permissions (see below)
+allowedCommands | array | | Commands `run_command` can run without confirmation (see below)
 shell | string | cmd /s /c "{command}" | Command line used by `run_command`. `{command}` is replaced by the command given by the agent; without `{command}`, the command is added at the end. It can also be used to run commands through a program filtering their output, for example to reduce the number of tokens
 maxToolIterations | integer | 15 | Maximum number of successive tool call rounds for a single message. When exceeded, the agent stops with an error
 limits | object | | Limits on the size of tool results (see below)
@@ -179,6 +182,16 @@ Two exceptions apply to `"*"`:
 
 Small models often work better with a few tools. Tools which aren't available are never sent to the model, and are refused if the model tries to call them anyway.
 
+### Allowed commands
+
+`allowedCommands` is a list of commands which `run_command` can run without asking you, for example `"allowedCommands": ["git status", "git diff", "git log", "make *"]`. Other commands still need a confirmation, unless `run_command` is explicitly set to `allow` in `tools`. If `run_command` is denied, the list has no effect.
+
+- `*` stands for any sequence of characters, spaces included, and `?` for any single character. Case is ignored.
+- A pattern only has to match the beginning of the command, up to a space: `git status` allows `git status` and `git status -s`, but not `git statusx`. `make *` allows `make all` or `make clean install`, but not `make` alone: add `make` too if needed.
+- A command containing one of the characters `& | < > ^ % ; $` or a backquote is never allowed automatically, even if it matches, because these characters can chain another command, redirect the output into a file, or expand variables: `git status & del /s /q *` always asks.
+
+Keep in mind that a command can do much more than it seems with some of its options, for example writing a file. Only list commands whose options you know, and prefer precise patterns.
+
 ### Limits
 
 Key | Default value | Description
@@ -204,6 +217,7 @@ When a limit is reached, the result tells the agent how to get the rest, for exa
 "systemPrompt": "You are a text edition and coding agent. Don't guess the content of a file before reading it. Reply concisely to the user in his language.",
 "temperature": 0.2,
 "tools": { "*": "ask", "edit_file": "allow", "write_file": "allow" },
+"allowedCommands": ["git status", "git diff", "git log"],
 "limits": { "readMaxLines": 300 }
 },
 {

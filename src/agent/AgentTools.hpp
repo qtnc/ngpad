@@ -20,6 +20,7 @@ typedef std::function<ToolConfirmation(const wxString& message, const wxString& 
 wxString root, rootDir; // rootDir: normalized, with trailing separator
 AgentLimits limits;
 std::string shell;
+std::vector<std::string> allowedCommands;
 std::vector<wxString> ignoredDirs, excludedExtensions;
 ConfirmCallback confirm;
 ToolPermission permission = ToolPermission::Ask; // Effective permission of the tool being executed: Allow skips confirmations
@@ -74,6 +75,9 @@ static ToolResult Execute (const std::string& name, const std::string& arguments
 
 // Valid UTF-8 from bytes in UTF-8 or else in the given encoding; CRLF are converted to LF
 std::string ToValidUTF8 (const std::string& bytes, wxMBConv& fallback);
+
+// Whether a command matches one of the glob patterns of allowedCommands (see doc/agents.md). Commands containing characters with a special meaning for shells never match.
+bool IsAllowedCommand (const std::string& command, const std::vector<std::string>& patterns);
 
 ToolResult ToolRunCommand (const nlohmann::json& args, const ToolContext& context);
 ToolResult ToolRunLua (const nlohmann::json& args, const ToolContext& context);

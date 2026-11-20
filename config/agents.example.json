@@ -1,16 +1,33 @@
-[
 {
-"name": "Local test agent",
+// Values common to all agents. An agent can override any of them; objects such as limits are merged key by key, and allowedCommands are added together.
+"defaults": {
 "api": "openai-chat",
-"url": "http://localhost:1235/v1/",
-"model": "mistralai/ministral-3-3b",
-"headers": {},
 "systemPrompt": "You are a text edition and coding agent. You can list, read and edit files in the workspace. Don't guess the content of a file before reading it. Reply concisely to the user in his language.",
-"temperature": 0.2,
 "timeout": 600,
 "tools": { "*": "ask", "edit_file": "allow" },
+"allowedCommands": ["git status", "git diff", "git log"],
 "shell": "cmd /s /c \"{command}\"",
 "maxToolIterations": 15,
 "limits": { "readMaxLines": 500, "listMaxEntries": 500, "searchMaxResults": 100, "searchMaxLineLength": 200, "maxResultChars": 50000, "commandTimeout": 60, "commandMaxTimeout": 600 }
+},
+
+"agents": [
+{
+"name": "Local test agent",
+"url": "http://localhost:1235/v1/",
+"model": "mistralai/ministral-3-3b",
+"temperature": 0.2,
+// Small model: fewer tools, shorter results
+"tools": ["list_files", "read_file", "search_files", "edit_file", "write_file"],
+"limits": { "readMaxLines": 200, "searchMaxResults": 50 }
+},
+{
+"name": "Online agent",
+"url": "https://api.example.com/v1/",
+"model": "some-model",
+"headers": { "Authorization": "Bearer your-api-key" },
+// Added to the commands of defaults
+"allowedCommands": ["make *"]
 }
 ]
+}

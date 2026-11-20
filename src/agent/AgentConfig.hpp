@@ -33,6 +33,7 @@ int maxToolIterations = 15;
 std::map<std::string, ToolPermission> toolSettings;
 bool toolsListClosed = false;
 ToolPermission otherToolsSetting = ToolPermission::Default;
+std::vector<std::string> allowedCommands; // Glob patterns of commands run_command can run without confirmation
 AgentLimits limits;
 
 static AgentConfig FromJson (const nlohmann::json& j);

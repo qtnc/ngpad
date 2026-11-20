@@ -325,3 +325,7 @@ Menu contextuel (pas de barre de menus dans le dialogue) : copier, tout sélecti
     - `AgentTools::GetPermission` calcule la permission effective (jamais `Default`) ; `AgentTools::IsEnabled`. Les permissions sont calculées sur le thread principal dans `HandleToolCalls` et passées à `Execute`, qui copie le contexte et y met `ToolContext::permission`.
     - `ToolContext::Confirm` renvoie directement `Allow` si la permission est `allow` : les handlers n'ont pas changé. À revoir aux étapes 3-4 : un chemin hors racine devra demander même en `allow` (paramètre de `Confirm` qui force la demande).
     - Outil appelé mais `deny` : « The tool X is disabled by the configuration » ; outil inconnu : message inchangé, sans liste des outils.
+  - [x] 3. `allowedCommands` (compilé ; édition de liens à refaire, l'exe était ouvert ; à tester dans l'interface).
+    - `AgentConfig::allowedCommands` (motifs sans espaces de début et de fin ; élément non chaîne → erreur de config), copié dans `ToolContext`.
+    - `IsAllowedCommand` dans `AgentCommand.cpp` : correspondance glob par programmation dynamique sur les octets UTF-8 (`?` = un caractère UTF-8, casse ignorée pour l'ASCII seulement), fin de motif sur la fin de la commande ou un espace/tabulation. Refus si la commande contient `& | < > ^ % ; $`, un accent grave, `\r` ou `\n` (métacaractères de cmd, PowerShell et des shells Unix, puisque `shell` est configurable). Testé hors application (26 cas).
+    - `%` bloque aussi des commandes innocentes (`git log --format=%h`) : elles demandent confirmation, c'est voulu.

@@ -50,6 +50,15 @@ else c.toolSettings[name] = permission;
 }}
 else throw std::runtime_error(format("agent \"{}\": \"tools\" must be an array of tool names, or an object giving the permission of each tool", c.name));
 }
+if (j.contains("allowedCommands")) {
+auto& a = j["allowedCommands"];
+if (!a.is_array()) throw std::runtime_error(format("agent \"{}\": \"allowedCommands\" must be an array of strings", c.name));
+for (auto& item: a) {
+if (!item.is_string()) throw std::runtime_error(format("agent \"{}\": invalid item {} in \"allowedCommands\", expected a string", c.name, item.dump()));
+std::string pattern = item.get<std::string>();
+size_t start = pattern.find_first_not_of(" \t"), end = pattern.find_last_not_of(" \t");
+if (start!=std::string::npos) c.allowedCommands.push_back(pattern.substr(start, end - start + 1));
+}}
 if (j.contains("limits") && j["limits"].is_object()) {
 auto& l = j["limits"];
 c.limits.readMaxLines = l.value("readMaxLines", c.limits.readMaxLines);
