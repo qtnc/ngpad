@@ -818,14 +818,15 @@ Converts all the content written to this stream into a string. It works only for
 **Returns:**
 * string: content of the stream as a string. Note that the string is returned as it is read. It may not be encoded in UTF-8, and may even be binary data not humanly readable.
 
-### outputStream:write (data)
-Write content to the stream
+### outputStream:write (data, timeout=0)
+Write content to the stream. When the stream can't take everything at once, as the standard input of a process whose pipe is full, wait until all the data is written.
 
 **Parameters:**
 * data: string: data to write
+* timeout: integer: the maximum amount of time (in miliseconds) to wait for the stream to accept more data, 0 or negative means infinite
 
 **Returns:**
-* integer: number of bytes written
+* integer: number of bytes written, less than the size of the data only in case of error or timeout
 
 ### outputStream:writeFrom (input)
 Write all data read from an input stream
