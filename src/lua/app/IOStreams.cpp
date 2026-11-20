@@ -129,6 +129,42 @@ wxOutputStream* operator() (const wxFileName& fn) { return oOpen1(fn.GetAbsolute
 return std::visit(Visitor(), fn);
 }
 
+// The streams of a process belong to the wxProcess. Lua gets them through these wrappers, which
+// forward everything to the process stream and never delete it when they are garbage collected.
+struct ProcessInputStream: wxFilterInputStream {
+ProcessInputStream (wxInputStream& in): wxFilterInputStream(in) {}
+bool CanRead () const override { return m_wbackcur<m_wbacksize || m_parent_i_stream->CanRead(); }
+bool Eof () const override { return m_wbackcur>=m_wbacksize && m_parent_i_stream->Eof(); }
+size_t OnSysRead (void* buffer, size_t size) override {
+size_t n = m_parent_i_stream->Read(buffer, size).LastRead();
+m_lasterror = m_parent_i_stream->GetLastError();
+return n;
+}};
+
+struct ProcessOutputStream: wxFilterOutputStream {
+ProcessOutputStream (wxOutputStream& out): wxFilterOutputStream(out) {}
+bool Close () override { return m_parent_o_stream->Close(); }
+size_t OnSysWrite (const void* buffer, size_t size) override {
+size_t n = m_parent_o_stream->Write(buffer, size).LastWrite();
+m_lasterror = m_parent_o_stream->GetLastError();
+return n;
+}};
+
+static wxInputStream* ProcessGetInputStream (wxProcess& proc) {
+auto in = proc.GetInputStream();
+return in? new ProcessInputStream(*in) : nullptr;
+}
+
+static wxInputStream* ProcessGetErrorStream (wxProcess& proc) {
+auto in = proc.GetErrorStream();
+return in? new ProcessInputStream(*in) : nullptr;
+}
+
+static wxOutputStream* ProcessGetOutputStream (wxProcess& proc) {
+auto out = proc.GetOutputStream();
+return out? new ProcessOutputStream(*out) : nullptr;
+}
+
 static wxProcess* ProcessCreate (const wxString& cmd) {
 return wxProcess::Open(cmd, wxEXEC_ASYNC | wxEXEC_HIDE_CONSOLE);
 }
@@ -254,11 +290,11 @@ Binding::LuaClass<wxProcess>(L, "Process")
 //P command: string: nil: command-line containing the path to the executable to run as well as all command-line parameters
 .constructor(&ProcessCreate, {"command"})
 //G InputStream: input stream connected to the standard output stream of the process
-.getter("inputStream", &wxProcess::GetInputStream)
+.getter("inputStream", &ProcessGetInputStream)
 //G OutputStream: output stream connected to the standard input stream of the process
-.getter("outputStream", &wxProcess::GetOutputStream)
+.getter("outputStream", &ProcessGetOutputStream)
 //G InputStream: input stream connected to the standard error stream of the process
-.getter("errorStream", &wxProcess::GetErrorStream)
+.getter("errorStream", &ProcessGetErrorStream)
 //G boolean: tells if there is data available on the input stream
 .boolGetter("inputAvailable", &wxProcess::IsInputAvailable)
 //G boolean: tells if there is data available on the error stream
