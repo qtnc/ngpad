@@ -17,6 +17,18 @@ if (s=="default") return ToolPermission::Default;
 throw std::runtime_error(format("agent \"{}\", tool \"{}\": invalid permission {}, expected \"allow\", \"ask\", \"deny\" or \"default\"", agent, tool, value.dump()));
 }
 
+// Array of strings, trimmed, empty strings ignored
+static void ReadStringList (const json& j, const std::string& key, const std::string& agent, std::vector<std::string>& list) {
+if (!j.contains(key)) return;
+auto& a = j[key];
+if (!a.is_array()) throw std::runtime_error(format("agent \"{}\": \"{}\" must be an array of strings", agent, key));
+for (auto& item: a) {
+if (!item.is_string()) throw std::runtime_error(format("agent \"{}\": invalid item {} in \"{}\", expected a string", agent, item.dump(), key));
+std::string s = item.get<std::string>();
+size_t start = s.find_first_not_of(" \t"), end = s.find_last_not_of(" \t");
+if (start!=std::string::npos) list.push_back(s.substr(start, end - start + 1));
+}}
+
 AgentConfig AgentConfig::FromJson (const json& j) {
 AgentConfig c;
 c.name = j.value("name", "");
@@ -50,15 +62,9 @@ else c.toolSettings[name] = permission;
 }}
 else throw std::runtime_error(format("agent \"{}\": \"tools\" must be an array of tool names, or an object giving the permission of each tool", c.name));
 }
-if (j.contains("allowedCommands")) {
-auto& a = j["allowedCommands"];
-if (!a.is_array()) throw std::runtime_error(format("agent \"{}\": \"allowedCommands\" must be an array of strings", c.name));
-for (auto& item: a) {
-if (!item.is_string()) throw std::runtime_error(format("agent \"{}\": invalid item {} in \"allowedCommands\", expected a string", c.name, item.dump()));
-std::string pattern = item.get<std::string>();
-size_t start = pattern.find_first_not_of(" \t"), end = pattern.find_last_not_of(" \t");
-if (start!=std::string::npos) c.allowedCommands.push_back(pattern.substr(start, end - start + 1));
-}}
+ReadStringList(j, "allowedCommands", c.name, c.allowedCommands);
+ReadStringList(j, "readablePaths", c.name, c.readablePaths);
+ReadStringList(j, "writablePaths", c.name, c.writablePaths);
 if (j.contains("limits") && j["limits"].is_object()) {
 auto& l = j["limits"];
 c.limits.readMaxLines = l.value("readMaxLines", c.limits.readMaxLines);

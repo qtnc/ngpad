@@ -10,7 +10,7 @@ The model is accessed through an HTTP API compatible with the OpenAI chat comple
 Press F11, or use the AI agent item of the Tools menu.
 
 The workspace root is the workspace root of the active document, as determined by `workspace_root_indicators` in config.ini. If the active document isn't saved in a file, a dialog box asks you to choose a directory.
-The workspace root of an agent can't be changed. The agent can't access any file outside of it.
+The workspace root of an agent can't be changed. Outside of it, the agent must ask you before accessing any file, unless the file is listed in `readablePaths` or `writablePaths` (see Paths below).
 
 There is a single agent per workspace root. If an agent already exists for the root, its window is shown again with its conversation.
 To work on several projects at the same time, open an agent for each of them. Each one has its own window and its own conversation.
@@ -76,7 +76,15 @@ Tools are executed in a separate thread: the editor stays usable while a command
 
 ### Paths
 
-The agent only sees paths relative to the workspace root, with `/` as separator.
+The agent sees paths relative to the workspace root, with `/` as separator. Files outside of the workspace are designated by absolute paths, still with `/`, for example `C:/MinGW/include/stdio.h` or `//server/share/file.txt`.
+
+Outside of the workspace:
+
+- Reading (`list_files`, `read_file`, `search_files`, `open_in_editor`) is allowed without confirmation in the files and directories listed in `readablePaths` or `writablePaths`. Elsewhere, you are asked first, whatever the permission of the tool.
+- Modifying (`edit_file`, `write_file`, `replace_in_files`, `move_file`, `delete_file`), as well as running a command with a working directory outside of the workspace, is allowed according to the permission of the tool in the files and directories listed in `writablePaths`. Elsewhere, the confirmation is always asked, even if the tool is allowed, and it warns you that the file is outside of the workspace.
+- `get_editor_context` never tells anything about documents outside of the workspace.
+
+When `readablePaths` or `writablePaths` are given, the agent is told it can use them.
 Directories ignored by `list_files` and `search_files` are given by `agent_ignored_dirs` in config.ini (see below). Binary files are ignored by `search_files` and can't be read by `read_file`.
 
 ### Open files
@@ -138,7 +146,7 @@ The file can also be an object with two keys: `agents`, the array of agents, and
 
 Here, both agents have a timeout of 300 seconds and read at most 300 lines; the second one also lists at most 100 entries.
 
-`allowedCommands` is an exception: the commands given in `defaults` and those of the agent are added together, the agent can run all of them.
+`allowedCommands`, `readablePaths` and `writablePaths` are an exception: the items given in `defaults` and those of the agent are added together.
 
 Key | Value type | Default value | Description
 -----|-----|-----|-----
@@ -153,6 +161,8 @@ maxTokens | integer | | Maximum number of tokens of an answer. When not specifie
 timeout | integer | 600 | Maximum time to wait for an answer, in seconds. Local models can be very slow
 tools | array or object | all tools | Tools the agent can use, and their permissions (see below)
 allowedCommands | array | | Commands `run_command` can run without confirmation (see below)
+readablePaths | array | | Files and directories outside of the workspace the agent can read without asking (see below)
+writablePaths | array | | Files and directories outside of the workspace the agent can read and modify as in the workspace (see below)
 shell | string | cmd /s /c "{command}" | Command line used by `run_command`. `{command}` is replaced by the command given by the agent; without `{command}`, the command is added at the end. It can also be used to run commands through a program filtering their output, for example to reduce the number of tokens
 maxToolIterations | integer | 15 | Maximum number of successive tool call rounds for a single message. When exceeded, the agent stops with an error
 limits | object | | Limits on the size of tool results (see below)
@@ -191,6 +201,15 @@ Small models often work better with a few tools. Tools which aren't available ar
 - A command containing one of the characters `& | < > ^ % ; $` or a backquote is never allowed automatically, even if it matches, because these characters can chain another command, redirect the output into a file, or expand variables: `git status & del /s /q *` always asks.
 
 Keep in mind that a command can do much more than it seems with some of its options, for example writing a file. Only list commands whose options you know, and prefer precise patterns.
+
+### Paths outside of the workspace
+
+`readablePaths` and `writablePaths` list files and directories outside of the workspace, for example `"readablePaths": ["C:/MinGW/include/"], "writablePaths": ["../shared/"]`. See Paths in the Tools section for what they allow. A path in `writablePaths` can also be read.
+
+- A path without wildcard designates a file, or a directory with all its content. A final `/` is optional.
+- `*` stands for any part of a file or directory name, `**` for any sequence of directories, and `?` for any single character: `C:/projects/*/include/**` designates the content of the `include` directory of every project.
+- Relative paths are relative to the workspace root: `../shared/` designates the directory `shared` next to the workspace.
+- `/` and `\` can both be used. Case is ignored.
 
 ### Limits
 

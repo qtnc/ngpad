@@ -24,6 +24,7 @@ int GetLineEnding (const Properties& properties);
 void SetEncoding (Properties& properties, int encoding);
 void SetLineEnding (Properties& properties, int lineEnding);
 wxRegEx GlobToRegEx (const wxString& glob);
+bool MatchGlob (const wxString& pattern, const wxString& filename);
 
 #define DEFAULT_AGENT_IGNORED_DIRS ".git, .svn, .hg, node_modules, obj, objd, __pycache__"
 
@@ -44,8 +45,10 @@ ignoredDirs = SplitConfigList(config.get("agent_ignored_dirs", DEFAULT_AGENT_IGN
 excludedExtensions = SplitConfigList(config.get("workspace_file_list_exclude_exts", ""));
 }
 
-bool ToolContext::ResolvePath (const std::string& input, wxString& absPath, std::string& error) const {
-wxString p = U(input);
+// Absolute normalized path (native separators, no trailing separator) from a path relative to the root, or absolute.
+// '/' and '\' are both accepted; a single leading '/' designates the root, while 'X:/' and '//server/share' are absolute.
+static wxString MakeAbsolutePath (const wxString& input, const wxString& rootDir) {
+wxString p = input;
 p.Trim(true).Trim(false);
 p.Replace("\\", "/");
 bool absolute = (p.size()>=2 && p[1]==':') || p.StartsWith("//");
@@ -57,11 +60,79 @@ full = rootDir + p;
 }
 wxFileName fn(full);
 fn.Normalize(wxPATH_NORM_DOTS | wxPATH_NORM_ABSOLUTE);
-absPath = fn.GetFullPath();
+wxString absPath = fn.GetFullPath();
 while (absPath.size()>1 && absPath.EndsWith(wxFILE_SEP_PATH)) absPath.RemoveLast();
+return absPath;
+}
+
+static wxString ToSlashes (wxString path) {
+path.Replace("\\", "/");
+return path;
+}
+
+void ToolContext::SetAllowedPaths (const std::vector<std::string>& readable, const std::vector<std::string>& writable) {
+auto convert = [&](const std::vector<std::string>& entries, std::vector<AllowedPath>& result){
+result.clear();
+for (auto& entry: entries) {
+wxString e = U(entry);
+bool isPattern = e.find_first_of("*?[{")!=wxString::npos;
+result.push_back({ ToSlashes(MakeAbsolutePath(e, rootDir)), isPattern });
+}};
+convert(readable, readablePaths);
+convert(writable, writablePaths);
+}
+
+bool ToolContext::IsInWorkspace (const wxString& absPath) const {
 wxString lowerAbs = absPath.Lower(), lowerRoot = rootDir.Lower();
-if (lowerAbs + wxFILE_SEP_PATH == lowerRoot || lowerAbs.StartsWith(lowerRoot)) return true;
+return lowerAbs + wxFILE_SEP_PATH == lowerRoot || lowerAbs.StartsWith(lowerRoot);
+}
+
+static bool IsUnder (const wxString& path, const wxString& dir) {
+wxString p = path.Lower(), d = dir.Lower();
+return p==d || p.StartsWith(d.EndsWith("/")? d : d + "/");
+}
+
+static bool MatchesAllowedPath (const wxString& slashPath, const std::vector<AllowedPath>& entries) {
+for (auto& e: entries) {
+if (e.isPattern? MatchGlob(e.path, slashPath) : IsUnder(slashPath, e.path)) return true;
+}
+return false;
+}
+
+bool ToolContext::IsAllowedOutside (const wxString& absPath, PathAccess access) const {
+if (access==PathAccess::RootOnly) return false;
+wxString p = ToSlashes(absPath);
+if (MatchesAllowedPath(p, writablePaths)) return true;
+if (access!=PathAccess::Read) return false;
+if (MatchesAllowedPath(p, readablePaths)) return true;
+for (auto& a: approvedReads) if (IsUnder(p, ToSlashes(a))) return true;
+return false;
+}
+
+bool ToolContext::ResolvePath (const std::string& input, wxString& absPath, std::string& error, PathAccess access) const {
+absPath = MakeAbsolutePath(U(input), rootDir);
+if (IsInWorkspace(absPath)) return true;
+if (access==PathAccess::RootOnly) {
 error = format("Path is outside the workspace: {}. Use paths relative to the workspace root.", input);
+return false;
+}
+if (IsAllowedOutside(absPath, access)) return true;
+// Writing: the tool asks for a confirmation anyway, which becomes mandatory
+if (access==PathAccess::Write) {
+outsideWorkspace = true;
+return true;
+}
+std::string shown = GetRelativePath(absPath);
+auto answer = Ask(U(format(GetTranslation("AgentConfirmReadOutside"), shown)));
+if (answer==ToolConfirmation::Allow) {
+approvedReads.push_back(absPath);
+return true;
+}
+if (answer==ToolConfirmation::Stop) {
+stopped = true;
+error = "The user stopped the agent.";
+}
+else error = format("The user denied access to {}, which is outside the workspace. Don't retry: work inside the workspace, or ask the user what to do.", shown);
 return false;
 }
 
@@ -86,7 +157,14 @@ return false;
 }
 
 ToolConfirmation ToolContext::Confirm (const wxString& message, bool denyByDefault, const wxString& details) const {
+if (!outsideWorkspace) {
 if (permission==ToolPermission::Allow) return ToolConfirmation::Allow;
+return Ask(message, denyByDefault, details);
+}
+return Ask(message + "\n" + MSG("AgentOutsideWorkspace"), true, details);
+}
+
+ToolConfirmation ToolContext::Ask (const wxString& message, bool denyByDefault, const wxString& details) const {
 if (!confirm) return ToolConfirmation::Deny;
 return RunEDTSync([&](){ return confirm(message, details, denyByDefault); });
 }
@@ -261,10 +339,10 @@ wxString base, singleFile;
 std::vector<wxString> dirs, files;
 };
 
-static bool SelectFiles (const std::string& path, bool recursive, bool includeDirs, const ToolContext& context, FileSelection& sel, std::string& error) {
+static bool SelectFiles (const std::string& path, bool recursive, bool includeDirs, PathAccess access, const ToolContext& context, FileSelection& sel, std::string& error) {
 std::string dirPart, mask;
 SplitPattern(path, dirPart, mask);
-if (!context.ResolvePath(dirPart, sel.base, error)) return false;
+if (!context.ResolvePath(dirPart, sel.base, error, access)) return false;
 if (mask.empty()) {
 if (wxFileExists(sel.base)) {
 sel.singleFile = sel.base;
@@ -299,7 +377,7 @@ std::string path = GetStringArg(args, "path");
 bool recursive = GetBoolArg(args, "recursive", false);
 FileSelection sel;
 std::string error;
-if (!SelectFiles(path, recursive, true, context, sel, error)) return ToolResult::Error(error);
+if (!SelectFiles(path, recursive, true, PathAccess::Read, context, sel, error)) return ToolResult::Error(error);
 std::vector<std::string> entries;
 if (!sel.singleFile.empty()) entries.push_back(context.GetRelativePath(sel.singleFile));
 bool recursiveListing = recursive || path.find("**")!=std::string::npos;
@@ -317,7 +395,7 @@ static ToolResult ToolReadFile (const json& args, const ToolContext& context) {
 std::string path = GetStringArg(args, "path"), error;
 if (path.empty()) return ToolResult::Error("path is required.");
 wxString file;
-if (!context.ResolvePath(path, file, error)) return ToolResult::Error(error);
+if (!context.ResolvePath(path, file, error, PathAccess::Read)) return ToolResult::Error(error);
 std::string rel = context.GetRelativePath(file);
 if (wxDirExists(file)) return ToolResult::Error(format("{} is a directory. Use list_files to see its content.", rel));
 if (!wxFileExists(file)) return ToolResult::Error(format("File not found: {}. Use list_files to see available files.", rel));
@@ -360,7 +438,7 @@ info.CreateRegEx();
 return ToolResult::Error(format("Invalid regular expression: {}", e.what()));
 }
 FileSelection sel;
-if (!SelectFiles(path, true, false, context, sel, error)) return ToolResult::Error(error);
+if (!SelectFiles(path, true, false, PathAccess::Read, context, sel, error)) return ToolResult::Error(error);
 std::vector<wxString> files = sel.files;
 if (!sel.singleFile.empty()) files.push_back(sel.singleFile);
 std::vector<std::string> lines;
@@ -419,7 +497,7 @@ info.CreateRegEx();
 return ToolResult::Error(format("Invalid regular expression: {}", e.what()));
 }
 FileSelection sel;
-if (!SelectFiles(path, true, false, context, sel, error)) return ToolResult::Error(error);
+if (!SelectFiles(path, true, false, PathAccess::Write, context, sel, error)) return ToolResult::Error(error);
 std::vector<wxString> files = sel.files;
 if (!sel.singleFile.empty()) files.push_back(sel.singleFile);
 struct FileChange { wxString file; std::string rel; bool open; wxString newText; int count; };
@@ -480,7 +558,7 @@ bool replaceAll = GetBoolArg(args, "replace_all", false);
 if (path.empty()) return ToolResult::Error("path is required.");
 if (oldText.empty()) return ToolResult::Error("old_text is required. Use write_file to create a file or to replace its whole content.");
 wxString file;
-if (!context.ResolvePath(path, file, error)) return ToolResult::Error(error);
+if (!context.ResolvePath(path, file, error, PathAccess::Write)) return ToolResult::Error(error);
 std::string rel = context.GetRelativePath(file);
 if (wxDirExists(file)) return ToolResult::Error(format("{} is a directory. Give the path of a file.", rel));
 bool open = IsOpenInEditor(file);
@@ -507,7 +585,7 @@ if (path.empty()) return ToolResult::Error("path is required.");
 if (args.find("content")==args.end()) return ToolResult::Error("content is required.");
 wxString content = U(GetStringArg(args, "content"));
 wxString file;
-if (!context.ResolvePath(path, file, error)) return ToolResult::Error(error);
+if (!context.ResolvePath(path, file, error, PathAccess::Write)) return ToolResult::Error(error);
 std::string rel = context.GetRelativePath(file);
 if (rel.empty() || wxDirExists(file)) return ToolResult::Error(format("{} is a directory. Give the path of a file.", rel.empty()? "/" : rel));
 content.Replace("\r\n", "\n");
@@ -571,7 +649,7 @@ if (!doc) return ToolResult::Ok("No active document found in the editor.");
 wxString filename = doc->GetFilename(), file;
 std::string error;
 if (filename.empty() || !doc->GetDocumentSaved()) return ToolResult::Ok("The active document is untitled: it isn't saved in a file of the workspace.");
-if (!context.ResolvePath(U(filename), file, error)) return ToolResult::Ok("The active document is outside the workspace.");
+if (!context.ResolvePath(U(filename), file, error, PathAccess::RootOnly)) return ToolResult::Ok("The active document is outside the workspace.");
 std::string result = format("Active file: {}\n", context.GetRelativePath(file));
 result += format("Unsaved changes: {}\n", doc->IsModified()? "yes" : "no");
 if (auto editor = doc->GetEditor()) result += DescribeCursorAndSelection(editor, context.limits.readMaxLines);
@@ -579,7 +657,7 @@ std::vector<std::string> others;
 for (auto wxdoc: wxGetApp().GetDocManager()->GetDocumentsVector()) {
 if (wxdoc==doc || wxdoc->GetFilename().empty() || !wxdoc->GetDocumentSaved()) continue;
 wxString other;
-if (!context.ResolvePath(U(wxdoc->GetFilename()), other, error)) continue;
+if (!context.ResolvePath(U(wxdoc->GetFilename()), other, error, PathAccess::RootOnly)) continue;
 others.push_back(context.GetRelativePath(other) + (wxdoc->IsModified()? " (unsaved changes)" : ""));
 }
 std::sort(others.begin(), others.end());
@@ -598,7 +676,7 @@ static ToolResult ToolOpenInEditor (const json& args, const ToolContext& context
 std::string path = GetStringArg(args, "path"), position = GetStringArg(args, "position"), error;
 if (path.empty()) return ToolResult::Error("path is required.");
 wxString file;
-if (!context.ResolvePath(path, file, error)) return ToolResult::Error(error);
+if (!context.ResolvePath(path, file, error, PathAccess::Read)) return ToolResult::Error(error);
 std::string rel = context.GetRelativePath(file);
 if (rel.empty() || wxDirExists(file)) return ToolResult::Error(format("{} is a directory. Give the path of a file.", rel.empty()? "/" : rel));
 if (!FindOpenEditor(file) && !wxFileExists(file)) return ToolResult::Error(format("File not found: {}. Use list_files to see available files.", rel));
@@ -621,7 +699,7 @@ std::string path = GetStringArg(args, "path"), newPath = GetStringArg(args, "new
 if (path.empty()) return ToolResult::Error("path is required.");
 if (newPath.empty()) return ToolResult::Error("new_path is required.");
 wxString source, dest;
-if (!context.ResolvePath(path, source, error) || !context.ResolvePath(newPath, dest, error)) return ToolResult::Error(error);
+if (!context.ResolvePath(path, source, error, PathAccess::Write) || !context.ResolvePath(newPath, dest, error, PathAccess::Write)) return ToolResult::Error(error);
 std::string rel = context.GetRelativePath(source), newRel = context.GetRelativePath(dest);
 if (rel.empty()) return ToolResult::Error("The workspace root can't be moved.");
 if (newRel.empty()) return ToolResult::Error("new_path must be the path of a file or directory, not the workspace root.");
@@ -650,7 +728,7 @@ static ToolResult ToolDeleteFile (const json& args, const ToolContext& context) 
 std::string path = GetStringArg(args, "path"), error;
 if (path.empty()) return ToolResult::Error("path is required.");
 wxString file;
-if (!context.ResolvePath(path, file, error)) return ToolResult::Error(error);
+if (!context.ResolvePath(path, file, error, PathAccess::Write)) return ToolResult::Error(error);
 std::string rel = context.GetRelativePath(file);
 if (rel.empty()) return ToolResult::Error("The workspace root can't be deleted.");
 bool isDir = wxDirExists(file);
@@ -908,6 +986,7 @@ else result = tool->handler(args, context);
 } catch (std::exception& e) {
 result = ToolResult::Error(e.what());
 }
+if (context.stopped) result = ToolResult::Stop();
 size_t max = context.limits.maxResultChars;
 if (result.text.size()>max) {
 size_t cut = max;

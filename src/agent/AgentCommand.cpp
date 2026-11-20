@@ -123,10 +123,11 @@ if (args.contains("timeout") && args["timeout"].is_number()) timeout = args["tim
 if (timeout<=0) timeout = context.limits.commandTimeout;
 if (timeout>context.limits.commandMaxTimeout) timeout = context.limits.commandMaxTimeout;
 wxString cwd;
-if (!context.ResolvePath(cwdArg, cwd, error)) return ToolResult::Error(error);
-if (!wxDirExists(cwd)) return ToolResult::Error(format("Directory not found: {}. cwd must be a directory of the workspace.", cwdArg));
+if (!context.ResolvePath(cwdArg, cwd, error, PathAccess::Write)) return ToolResult::Error(error);
+if (!wxDirExists(cwd)) return ToolResult::Error(format("Directory not found: {}. cwd must be an existing directory.", cwdArg));
 std::string relCwd = context.GetRelativePath(cwd, true);
-if (!IsAllowedCommand(command, context.allowedCommands)) {
+// A working directory outside the workspace, not covered by writablePaths, always requires a confirmation
+if (context.outsideWorkspace || !IsAllowedCommand(command, context.allowedCommands)) {
 wxString message = U(format(GetTranslation("AgentConfirmCommand"), relCwd.empty()? "/" : relCwd, timeout));
 auto answer = context.Confirm(message, true, U(command));
 if (answer==ToolConfirmation::Stop) return ToolResult::Stop();

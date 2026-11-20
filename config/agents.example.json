@@ -27,7 +27,10 @@
 "model": "some-model",
 "headers": { "Authorization": "Bearer your-api-key" },
 // Added to the commands of defaults
-"allowedCommands": ["make *"]
+"allowedCommands": ["make *"],
+// Outside of the workspace: read without asking, or read and modify as in the workspace (relative to the workspace root)
+"readablePaths": ["C:/MinGW/include/"],
+"writablePaths": ["../shared/"]
 }
 ]
 }

@@ -34,6 +34,7 @@ std::map<std::string, ToolPermission> toolSettings;
 bool toolsListClosed = false;
 ToolPermission otherToolsSetting = ToolPermission::Default;
 std::vector<std::string> allowedCommands; // Glob patterns of commands run_command can run without confirmation
+std::vector<std::string> readablePaths, writablePaths; // Files and directories outside the workspace the tools can access, as given in the configuration
 AgentLimits limits;
 
 static AgentConfig FromJson (const nlohmann::json& j);

@@ -124,6 +124,13 @@ std::string systemPrompt = config.systemPrompt;
 if (!tools.empty()) {
 if (!systemPrompt.empty()) systemPrompt += "\n\n";
 systemPrompt += format("The workspace root is the folder '{}'. All file paths are relative to it and use '/' as separator.", U(GetWorkspaceName(root)));
+// Places outside the workspace the agent may use without asking, resolved as absolute paths
+ToolContext paths(root, config.limits);
+paths.SetAllowedPaths(config.readablePaths, config.writablePaths);
+std::string outside;
+for (auto& p: paths.readablePaths) outside += (outside.empty()? "" : ", ") + U(p.path) + " (read only)";
+for (auto& p: paths.writablePaths) outside += (outside.empty()? "" : ", ") + U(p.path);
+if (!outside.empty()) systemPrompt += " Outside of the workspace, you can also access these files and directories, with absolute paths: " + outside + ".";
 if (AgentTools::IsEnabled("get_editor_context", config)) systemPrompt += " The user works in a text editor: when they refer to the current file, the selection, the cursor or 'here', call get_editor_context.";
 body["tools"] = tools;
 }
@@ -256,6 +263,7 @@ return confirm(message, details, denyByDefault);
 };
 context.shell = config.shell;
 context.allowedCommands = config.allowedCommands;
+context.SetAllowedPaths(config.readablePaths, config.writablePaths);
 context.cancelled = cancelled;
 context.luaEnv = luaEnv;
 // Permissions are computed here, on the main thread, from the configuration; nullopt: unknown tool
