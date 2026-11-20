@@ -36,16 +36,16 @@ if (in.LastRead()!=1 || (max>0 && out.size()>=max) || (timeout>0 && time-lastRea
 return out;
 }
 
-static std::string iReadAll (wxInputStream& in, size_t timeout) {
-return wxisRead(in, 0, timeout, 0);
+static std::string iReadAll (wxInputStream& in, std::optional<int> timeout) {
+return wxisRead(in, 0, timeout.value_or(0), 0);
 }
 
-static std::string iReadLine  (wxInputStream& in, size_t timeout) {
-return wxisRead(in, 0, timeout, '\n');
+static std::string iReadLine  (wxInputStream& in, std::optional<int> timeout) {
+return wxisRead(in, 0, timeout.value_or(0), '\n');
 }
 
-static std::string iReadN (wxInputStream& in, size_t max, size_t timeout) {
-return wxisRead(in, max, timeout, 0);
+static std::string iReadN (wxInputStream& in, size_t max, std::optional<int> timeout) {
+return wxisRead(in, max, timeout.value_or(0), 0);
 }
 
 static inline wxSeekMode modeFromString (const std::string& sMode) {
@@ -66,8 +66,9 @@ static wxFileOffset oSeek (wxOutputStream& out, wxFileOffset pos, const std::str
 return out.SeekO(pos, modeFromString(mode));
 }
 
-static size_t oWrite (wxOutputStream& out, const std::string& s, size_t timeout) {
+static size_t oWrite (wxOutputStream& out, const std::string& s, std::optional<int> optTimeout) {
 const char* data = s.data();
+int timeout = optTimeout.value_or(0);
 size_t left = s.size(), total = 0;
 auto lastWriteTime = mtime();
 while (left>0) {
