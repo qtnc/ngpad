@@ -2,6 +2,8 @@
 #include "AgentTools.hpp"
 #include "../app/App.hpp"
 #include "../common/println.hpp"
+#include "../common/stringUtils.hpp"
+#include<algorithm>
 #include <wx/filename.h>
 #include <wx/process.h>
 #include <wx/utils.h>
@@ -106,6 +108,16 @@ for (auto& pattern: patterns) if (!pattern.empty() && GlobMatchesCommandStart(pa
 return false;
 }
 
+std::string ProposeCommandPattern (const std::string& command) {
+auto words = split(command, " \t", true);
+words.erase(std::remove(words.begin(), words.end(), ""), words.end());
+if (words.empty()) return "";
+std::string pattern = words[0];
+// A subcommand: a plain word, not an option, a path, a file name or an assignment
+if (words.size()>1 && words[1].find_first_of("-/\\.:\"'=&|<>^%;`$*?")==std::string::npos) pattern += " " + words[1];
+return pattern;
+}
+
 static std::string BuildCommandLine (const std::string& shell, const std::string& command) {
 std::string cmd = shell.empty()? DEFAULT_AGENT_SHELL : shell;
 size_t pos = cmd.find("{command}");
@@ -127,9 +139,9 @@ if (!context.ResolvePath(cwdArg, cwd, error, PathAccess::Write)) return ToolResu
 if (!wxDirExists(cwd)) return ToolResult::Error(format("Directory not found: {}. cwd must be an existing directory.", cwdArg));
 std::string relCwd = context.GetRelativePath(cwd, true);
 // A working directory outside the workspace, not covered by writablePaths, always requires a confirmation
-if (context.outsideWorkspace || !IsAllowedCommand(command, context.allowedCommands)) {
+if (context.outsideWorkspace || !context.IsCommandAllowed(command)) {
 wxString message = U(format(GetTranslation("AgentConfirmCommand"), relCwd.empty()? "/" : relCwd, timeout));
-auto answer = context.Confirm(message, true, U(command));
+auto answer = context.Confirm(message, true, U(command), GrantKind::Command, U(ProposeCommandPattern(command)));
 if (answer==ToolConfirmation::Stop) return ToolResult::Stop();
 if (answer!=ToolConfirmation::Allow) return ToolResult::Error("The user denied running this command. Don't retry it: ask the user what to do instead.");
 }

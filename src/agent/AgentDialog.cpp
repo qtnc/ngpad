@@ -8,51 +8,77 @@
 #include <wx/file.h>
 #include<algorithm>
 
-// Confirmation of a tool call with a long text to check: a command, a Lua script, a list of replacements...
-// The text has the focus so that it can be read first. Returns wxID_YES (allow), wxID_NO (deny) or wxID_CANCEL (stop).
-static int ShowConfirmDetailsDialog (wxWindow* parent, const wxString& title, const wxString& message, const wxString& details, bool denyByDefault) {
+// Confirmation of a tool call. A long text to check (command, Lua script, list of replacements...) is shown in a read-only field
+// which has the focus, so that it can be read first. For a command or a path, the value allowed by "for the session" or "always" can be edited.
+static ToolConfirmation ShowConfirmDialog (wxWindow* parent, const wxString& title, ConfirmRequest& request) {
+enum { ID_SESSION = wxID_HIGHEST + 1, ID_ALWAYS };
 wxDialog dlg(parent, wxID_ANY, title, wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
-auto label = new wxStaticText(&dlg, wxID_ANY, message);
-auto text = new wxTextCtrl(&dlg, wxID_ANY, details, wxDefaultPosition, dlg.FromDIP(wxSize(600, 250)), wxTE_MULTILINE | wxTE_READONLY | wxTE_RICH2 | wxHSCROLL | wxTE_DONTWRAP);
-auto allow = new wxButton(&dlg, wxID_YES, MSG("AgentAllow"));
-auto deny = new wxButton(&dlg, wxID_NO, MSG("AgentDeny"));
-auto stop = new wxButton(&dlg, wxID_CANCEL, MSG("AgentStop"));
-auto buttons = new wxBoxSizer(wxHORIZONTAL);
-buttons->Add(allow, 0, wxALL, 5);
-buttons->Add(deny, 0, wxALL, 5);
-buttons->Add(stop, 0, wxALL, 5);
 auto sizer = new wxBoxSizer(wxVERTICAL);
+wxString message = request.message;
+bool canGrant = request.grant!=GrantKind::None;
+if (request.grant==GrantKind::Tool) message += "\n" + U(format(GetTranslation("AgentGrantTool"), U(request.grantValue)));
+auto label = new wxStaticText(&dlg, wxID_ANY, message);
+label->Wrap(dlg.FromDIP(600));
 sizer->Add(label, 0, wxALL | wxEXPAND, 5);
-sizer->Add(text, 1, wxALL | wxEXPAND, 5);
+wxTextCtrl* details = nullptr, *grantText = nullptr;
+if (!request.details.empty()) {
+details = new wxTextCtrl(&dlg, wxID_ANY, request.details, wxDefaultPosition, dlg.FromDIP(wxSize(600, 250)), wxTE_MULTILINE | wxTE_READONLY | wxTE_RICH2 | wxHSCROLL | wxTE_DONTWRAP);
+sizer->Add(details, 1, wxALL | wxEXPAND, 5);
+}
+if (canGrant && request.grant!=GrantKind::Tool) {
+sizer->Add(new wxStaticText(&dlg, wxID_ANY, MSG(request.grant==GrantKind::Command? "AgentGrantCommand" : "AgentGrantPath")), 0, wxLEFT | wxRIGHT | wxTOP, 5);
+grantText = new wxTextCtrl(&dlg, wxID_ANY, request.grantValue);
+sizer->Add(grantText, 0, wxALL | wxEXPAND, 5);
+}
+auto buttons = new wxBoxSizer(wxHORIZONTAL);
+std::vector<wxButton*> choices;
+auto allow = new wxButton(&dlg, wxID_YES, MSG("AgentAllow"));
+choices.push_back(allow);
+if (canGrant) {
+choices.push_back(new wxButton(&dlg, ID_SESSION, MSG("AgentAllowSession")));
+choices.push_back(new wxButton(&dlg, ID_ALWAYS, MSG("AgentAllowAlways")));
+}
+auto deny = new wxButton(&dlg, wxID_NO, MSG("AgentDeny"));
+choices.push_back(deny);
+auto stop = new wxButton(&dlg, wxID_CANCEL, MSG("AgentStop"));
+for (auto btn: choices) buttons->Add(btn, 0, wxALL, 5);
+buttons->Add(stop, 0, wxALL, 5);
 sizer->Add(buttons, 0, wxALIGN_RIGHT);
 dlg.SetSizerAndFit(sizer);
-(denyByDefault? deny : allow)->SetDefault();
+auto defaultButton = request.denyByDefault? deny : allow;
+defaultButton->SetDefault();
 dlg.SetEscapeId(wxID_CANCEL);
-for (auto btn: { allow, deny }) btn->Bind(wxEVT_BUTTON, [&dlg](wxCommandEvent& e){ dlg.EndModal(e.GetId()); });
-dlg.CentreOnParent();
-text->SetFocus();
-return dlg.ShowModal();
+for (auto btn: choices) btn->Bind(wxEVT_BUTTON, [&dlg, grantText](wxCommandEvent& e){
+int id = e.GetId();
+if ((id==ID_SESSION || id==ID_ALWAYS) && grantText && wxString(grantText->GetValue()).Trim(true).Trim(false).empty()) {
+wxBell();
+grantText->SetFocus();
+return;
 }
+dlg.EndModal(id);
+});
+dlg.CentreOnParent();
+if (details) details->SetFocus();
+else defaultButton->SetFocus();
+int result = dlg.ShowModal();
+if (grantText) request.grantValue = grantText->GetValue();
+switch(result){
+case wxID_YES: return ToolConfirmation::Allow;
+case ID_SESSION: return ToolConfirmation::AllowSession;
+case ID_ALWAYS: return ToolConfirmation::AllowAlways;
+case wxID_NO: return ToolConfirmation::Deny;
+default: return ToolConfirmation::Stop;
+}}
 
 AgentDialog::AgentDialog (wxWindow* parent, const wxString& title, const AgentConfig& config, const wxString& root):
 wxDialog(parent, wxID_ANY, title, wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMAXIMIZE_BOX | wxDIALOG_NO_PARENT)
 {
 session = std::make_unique<AgentSession>(config, root);
-session->SetConfirmCallback([this](const wxString& message, const wxString& details, bool denyByDefault){
+session->SetConfirmCallback([this](ConfirmRequest& request){
 // The dialog may be hidden while the agent is working
 ShowAgent();
-int result;
-if (details.empty()) {
-wxMessageDialog dlg(this, message, U(session->GetConfig().name), wxYES_NO | wxCANCEL | (denyByDefault? wxNO_DEFAULT : 0) | wxICON_QUESTION);
-dlg.SetYesNoCancelLabels(MSG("AgentAllow"), MSG("AgentDeny"), MSG("AgentStop"));
-result = dlg.ShowModal();
-}
-else result = ShowConfirmDetailsDialog(this, U(session->GetConfig().name), message, details, denyByDefault);
-switch(result){
-case wxID_YES: return ToolConfirmation::Allow;
-case wxID_NO: return ToolConfirmation::Deny;
-default: return ToolConfirmation::Stop;
-}});
+return ShowConfirmDialog(this, U(session->GetConfig().name), request);
+});
 
 editor = new AgentEditor(this, this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxTE_DONTWRAP | wxHSCROLL | wxVSCROLL | wxTE_RICH2 | wxTE_MULTILINE);
 auto sizer = new wxBoxSizer(wxVERTICAL);

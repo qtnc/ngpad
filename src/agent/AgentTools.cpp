@@ -103,10 +103,21 @@ bool ToolContext::IsAllowedOutside (const wxString& absPath, PathAccess access) 
 if (access==PathAccess::RootOnly) return false;
 wxString p = ToSlashes(absPath);
 if (MatchesAllowedPath(p, writablePaths)) return true;
+if (grants) {
+std::lock_guard<std::mutex> lock(grants->mutex);
+if (MatchesAllowedPath(p, grants->writePaths)) return true;
+if (access==PathAccess::Read && MatchesAllowedPath(p, grants->readPaths)) return true;
+}
 if (access!=PathAccess::Read) return false;
 if (MatchesAllowedPath(p, readablePaths)) return true;
 for (auto& a: approvedReads) if (IsUnder(p, ToSlashes(a))) return true;
 return false;
+}
+
+// Directory proposed to allow access to a path for the session: the path itself if it is a directory, else its parent
+static wxString GetGrantDirectory (const wxString& absPath) {
+if (wxDirExists(absPath)) return absPath;
+return wxFileName(absPath).GetPath();
 }
 
 bool ToolContext::ResolvePath (const std::string& input, wxString& absPath, std::string& error, PathAccess access) const {
@@ -119,11 +130,16 @@ return false;
 if (IsAllowedOutside(absPath, access)) return true;
 // Writing: the tool asks for a confirmation anyway, which becomes mandatory
 if (access==PathAccess::Write) {
+if (!outsideWorkspace) outsidePath = absPath;
 outsideWorkspace = true;
 return true;
 }
 std::string shown = GetRelativePath(absPath);
-auto answer = Ask(U(format(GetTranslation("AgentConfirmReadOutside"), shown)));
+ConfirmRequest request;
+request.message = U(format(GetTranslation("AgentConfirmReadOutside"), shown));
+request.grant = GrantKind::ReadPath;
+request.grantValue = U(GetRelativePath(GetGrantDirectory(absPath), true));
+auto answer = Ask(request);
 if (answer==ToolConfirmation::Allow) {
 approvedReads.push_back(absPath);
 return true;
@@ -156,17 +172,63 @@ for (auto& e: excludedExtensions) if (e.IsSameAs(ext, false)) return true;
 return false;
 }
 
-ToolConfirmation ToolContext::Confirm (const wxString& message, bool denyByDefault, const wxString& details) const {
-if (!outsideWorkspace) {
-if (permission==ToolPermission::Allow) return ToolConfirmation::Allow;
-return Ask(message, denyByDefault, details);
+ToolConfirmation ToolContext::Confirm (const wxString& message, bool denyByDefault, const wxString& details, GrantKind grant, const wxString& grantValue) const {
+ConfirmRequest request { message, details, denyByDefault, grant, grantValue };
+if (outsideWorkspace) {
+// Outside the workspace, the user can allow the directory, not the tool or the command
+request.message += "\n" + MSG("AgentOutsideWorkspace");
+request.denyByDefault = true;
+if (grant!=GrantKind::None) {
+request.grant = GrantKind::WritePath;
+request.grantValue = U(GetRelativePath(GetGrantDirectory(outsidePath), true));
 }
-return Ask(message + "\n" + MSG("AgentOutsideWorkspace"), true, details);
+return Ask(request);
+}
+if (permission==ToolPermission::Allow) return ToolConfirmation::Allow;
+if (grant==GrantKind::Tool) {
+request.grantValue = U(toolName);
+if (grants) {
+std::lock_guard<std::mutex> lock(grants->mutex);
+if (grants->tools.count(toolName)) return ToolConfirmation::Allow;
+}}
+return Ask(request);
 }
 
-ToolConfirmation ToolContext::Ask (const wxString& message, bool denyByDefault, const wxString& details) const {
+ToolConfirmation ToolContext::Ask (ConfirmRequest& request) const {
 if (!confirm) return ToolConfirmation::Deny;
-return RunEDTSync([&](){ return confirm(message, details, denyByDefault); });
+auto answer = RunEDTSync([&](){ return confirm(request); });
+if (answer==ToolConfirmation::AllowSession || answer==ToolConfirmation::AllowAlways) {
+if (request.grant!=GrantKind::None) AddGrant(request);
+return ToolConfirmation::Allow;
+}
+return answer;
+}
+
+void ToolContext::AddGrant (const ConfirmRequest& request) const {
+if (!grants) return;
+wxString value = request.grantValue;
+value.Trim(true).Trim(false);
+if (value.empty()) return;
+std::lock_guard<std::mutex> lock(grants->mutex);
+switch(request.grant){
+case GrantKind::Tool: grants->tools.insert(U(value)); break;
+case GrantKind::Command: grants->commands.push_back(U(value)); break;
+case GrantKind::ReadPath:
+case GrantKind::WritePath: {
+AllowedPath p { ToSlashes(MakeAbsolutePath(value, rootDir)), value.find_first_of("*?[{")!=wxString::npos };
+(request.grant==GrantKind::ReadPath? grants->readPaths : grants->writePaths).push_back(p);
+break;
+}
+default: break;
+}
+println("Agent grant for the session: {}", U(value));
+}
+
+bool ToolContext::IsCommandAllowed (const std::string& command) const {
+if (IsAllowedCommand(command, allowedCommands)) return true;
+if (!grants) return false;
+std::lock_guard<std::mutex> lock(grants->mutex);
+return IsAllowedCommand(command, grants->commands);
 }
 
 static std::string GetStringArg (const json& args, const std::string& key, const std::string& def = "") {
@@ -746,7 +808,7 @@ auto docs = FindOpenDocuments(file, isDir);
 size_t unsaved = std::count_if(docs.begin(), docs.end(), [](AbstractDocument* d){ return d->IsModified(); });
 if (unsaved) message += " " + format(GetTranslation("AgentConfirmDeleteUnsaved"), docs.size(), unsaved);
 else if (!docs.empty()) message += " " + format(GetTranslation("AgentConfirmDeleteOpen"), docs.size());
-auto answer = context.Confirm(U(message), true);
+auto answer = context.Confirm(U(message), true, wxEmptyString, GrantKind::None);
 if (answer!=ToolConfirmation::Allow) return RefusedResult(answer);
 if (!wxMoveToTrash(file)) return ToolResult::Error(format("Unable to delete {}.", rel));
 CloseDocuments(docs);
@@ -971,6 +1033,7 @@ return ToolResult::Error(format("Unknown tool: {}. Available tools: {}", name, n
 if (permission==ToolPermission::Deny) return ToolResult::Error(format("The tool {} is disabled by the configuration. Only use the tools you were given.", name));
 ToolContext context = baseContext;
 context.permission = permission;
+context.toolName = name;
 println("Agent tool call: {} {}", name, arguments);
 json args;
 try {

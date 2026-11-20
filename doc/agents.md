@@ -118,10 +118,16 @@ By default, each modification made by `edit_file`, `write_file`, `replace_in_fil
 For `replace_in_files`, a single confirmation shows the list of modified files with the number of replacements in each of them, and a few examples. For `run_command` and `run_lua`, the command or the code is shown in a text field, which has the focus so that you can read it before answering.
 
 - Allow: the modification is made, and the agent continues.
+- Allow for this session: the same, and the agent won't ask again until it is closed (clearing the conversation doesn't change it). What is allowed depends on the confirmation:
+  - for a modification in the workspace, every use of the same tool, for example all modifications made by `edit_file`;
+  - for a command, all commands starting with the text given in the field below the command, by default the program and its subcommand, for example `git diff`. You can modify it before answering, with the same rules as `allowedCommands` (see the Configuration section): for example, a command containing `&` or `>` still always asks;
+  - for a file outside of the workspace, the file or directory given in the field, by default the directory which contains the file. You can modify it before answering, with the same rules as `readablePaths` and `writablePaths`. When the agent wanted to read, reading is allowed; when it wanted to modify, reading and modifying are allowed.
+- Always allow: currently the same as Allow for this session.
 - Deny: the modification isn't made. The agent is informed of your refusal and continues; it should ask you what to do instead.
 - Stop the agent (or Escape): the modification isn't made, and the agent stops immediately, as if the request was cancelled. Modifications allowed before are kept.
 
-For `delete_file`, `run_command` and `run_lua`, the default button is Deny.
+Lua scripts and deletions can only be allowed once: each of them is confirmed.
+For `delete_file`, `run_command`, `run_lua`, and modifications outside of the workspace, the default button is Deny.
 If the agent window is hidden when a confirmation is needed, it is shown again first.
 
 ## Configuration

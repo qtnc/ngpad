@@ -4,9 +4,22 @@
 #include<atomic>
 #include<functional>
 #include<memory>
+#include<mutex>
+#include<set>
 #include<vector>
 
-enum class ToolConfirmation { Allow, Deny, Stop };
+// AllowSession and AllowAlways are only returned by the confirmation callback: ToolContext records the grant and returns Allow to the tools
+enum class ToolConfirmation { Allow, AllowSession, AllowAlways, Deny, Stop };
+
+// What "allow for the session" and "always allow" apply to in a confirmation. None: the action can only be allowed once
+enum class GrantKind { None, Tool, Command, ReadPath, WritePath };
+
+struct ConfirmRequest {
+wxString message, details; // details: long text (command, script...) shown in a read-only text field
+bool denyByDefault = false;
+GrantKind grant = GrantKind::None;
+wxString grantValue; // Tool name, command pattern or path (relative to the root, or absolute); the user can edit commands and paths
+};
 
 // How a tool uses a path, for paths outside the workspace root:
 // RootOnly: never accepted outside the root, without asking (e.g. listing open documents);
@@ -20,6 +33,14 @@ wxString path;
 bool isPattern; // Contains wildcards: matched with MatchGlob; otherwise the file or directory and all its content
 };
 
+// Grants given by the user for the rest of the session, from confirmations. Shared between the session and the tool threads.
+struct SessionGrants {
+std::mutex mutex;
+std::set<std::string> tools;
+std::vector<std::string> commands;
+std::vector<AllowedPath> readPaths, writePaths;
+};
+
 // Lua environment of an agent: globals defined by run_lua scripts persist in it during the conversation
 struct LuaEnvironment {
 int ref = -2; // LUA_NOREF until first use
@@ -28,7 +49,8 @@ int ref = -2; // LUA_NOREF until first use
 
 // Tools are executed in a separate thread: the context is copied into it and must not refer to the session
 struct ToolContext {
-typedef std::function<ToolConfirmation(const wxString& message, const wxString& details, bool denyByDefault)> ConfirmCallback;
+// Called on the main thread; may modify request.grantValue (edited by the user)
+typedef std::function<ToolConfirmation(ConfirmRequest& request)> ConfirmCallback;
 wxString root, rootDir; // rootDir: normalized, with trailing separator
 AgentLimits limits;
 std::string shell;
@@ -39,8 +61,11 @@ ConfirmCallback confirm;
 ToolPermission permission = ToolPermission::Ask; // Effective permission of the tool being executed: Allow skips confirmations
 std::shared_ptr<std::atomic<bool>> cancelled;
 std::shared_ptr<LuaEnvironment> luaEnv;
+std::shared_ptr<SessionGrants> grants;
 // State of the tool call being executed (the context is copied for each call)
+std::string toolName;
 mutable bool outsideWorkspace = false; // A path to write is outside the workspace and not covered by writablePaths: always confirm
+mutable wxString outsidePath; // The first such path
 mutable bool stopped = false; // The user chose to stop the agent in a confirmation asked by ResolvePath
 mutable std::vector<wxString> approvedReads; // Paths outside the workspace the user allowed to read during this call
 
@@ -54,11 +79,15 @@ std::string GetRelativePath (const wxString& absPath, bool isDir = false) const;
 bool IsIgnoredDir (const wxString& name) const;
 bool IsExcludedFile (const wxString& name) const;
 bool IsCancelled () const { return cancelled && *cancelled; }
-// Ask the user on the main thread, unless the tool is allowed. details: long text (command, script...) shown in a read-only text field
-ToolConfirmation Confirm (const wxString& message, bool denyByDefault = false, const wxString& details = wxEmptyString) const;
-// Ask the user on the main thread, whatever the permission of the tool
-ToolConfirmation Ask (const wxString& message, bool denyByDefault = false, const wxString& details = wxEmptyString) const;
+// Ask the user on the main thread, unless the tool is allowed (by its permission or for the session). Returns Allow, Deny or Stop.
+// grant: what the user can allow for the session; Tool means the current tool, and grantValue is then ignored.
+ToolConfirmation Confirm (const wxString& message, bool denyByDefault = false, const wxString& details = wxEmptyString, GrantKind grant = GrantKind::Tool, const wxString& grantValue = wxEmptyString) const;
+// Ask the user on the main thread, whatever the permission of the tool, and record a grant for the session if asked. Returns Allow, Deny or Stop.
+ToolConfirmation Ask (ConfirmRequest& request) const;
+// Whether a command matches allowedCommands or a command allowed for the session
+bool IsCommandAllowed (const std::string& command) const;
 private:
+void AddGrant (const ConfirmRequest& request) const;
 bool IsAllowedOutside (const wxString& absPath, PathAccess access) const;
 };
 
@@ -103,6 +132,8 @@ std::string ToValidUTF8 (const std::string& bytes, wxMBConv& fallback);
 
 // Whether a command matches one of the glob patterns of allowedCommands (see doc/agents.md). Commands containing characters with a special meaning for shells never match.
 bool IsAllowedCommand (const std::string& command, const std::vector<std::string>& patterns);
+// Pattern proposed to allow a command for the session: the program, followed by the subcommand if there is one (e.g. "git diff")
+std::string ProposeCommandPattern (const std::string& command);
 
 ToolResult ToolRunCommand (const nlohmann::json& args, const ToolContext& context);
 ToolResult ToolRunLua (const nlohmann::json& args, const ToolContext& context);

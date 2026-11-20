@@ -53,7 +53,7 @@ auto it = args.find("code");
 std::string code = it!=args.end() && it->is_string()? it->get<std::string>() : "";
 if (code.find_first_not_of(" \t\r\n")==std::string::npos) return ToolResult::Error("code is required.");
 if (!context.luaEnv) return ToolResult::Error("Lua isn't available.");
-auto answer = context.Confirm(MSG("AgentConfirmLua"), true, U(code));
+auto answer = context.Confirm(MSG("AgentConfirmLua"), true, U(code), GrantKind::None);
 if (answer==ToolConfirmation::Stop) return ToolResult::Stop();
 if (answer!=ToolConfirmation::Allow) return ToolResult::Error("The user denied running this code. Don't retry it: ask the user what to do instead.");
 println("Agent Lua code: {}", code);

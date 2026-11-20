@@ -67,7 +67,7 @@ if (found) hasCached = true;
 
 AgentSession::AgentSession (const AgentConfig& cfg, const wxString& root0):
 config(cfg), root(root0), model(cfg.model), messages(json::array()), alive(std::make_shared<bool>(true)),
-cancelled(std::make_shared<std::atomic<bool>>(false)), luaEnv(std::make_shared<LuaEnvironment>())
+cancelled(std::make_shared<std::atomic<bool>>(false)), luaEnv(std::make_shared<LuaEnvironment>()), grants(std::make_shared<SessionGrants>())
 {}
 
 AgentSession::~AgentSession () {
@@ -256,11 +256,12 @@ ToolContext context(root, config.limits);
 // Called on the main thread: the dialog may have been closed, or the conversation cleared, in the meantime
 std::weak_ptr<bool> confirmAlive = alive;
 auto confirm = confirmCallback;
-if (confirm) context.confirm = [confirmAlive, confirm](const wxString& message, const wxString& details, bool denyByDefault){
+if (confirm) context.confirm = [confirmAlive, confirm](ConfirmRequest& request){
 auto lock = confirmAlive.lock();
 if (!lock || !*lock) return ToolConfirmation::Stop;
-return confirm(message, details, denyByDefault);
+return confirm(request);
 };
+context.grants = grants;
 context.shell = config.shell;
 context.allowedCommands = config.allowedCommands;
 context.SetAllowedPaths(config.readablePaths, config.writablePaths);

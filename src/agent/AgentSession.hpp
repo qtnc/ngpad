@@ -37,6 +37,7 @@ bool toolsRunning = false; // Tool calls are being executed in their thread
 std::shared_ptr<bool> alive;
 std::shared_ptr<std::atomic<bool>> cancelled; // Cancellation of the current exchange, shared with the tool thread
 std::shared_ptr<LuaEnvironment> luaEnv;
+std::shared_ptr<SessionGrants> grants; // Kept until the agent is closed, even by Clear
 ResponseCallback pendingCallback;
 ToolCallCallback pendingToolCallback;
 ToolContext::ConfirmCallback confirmCallback;
