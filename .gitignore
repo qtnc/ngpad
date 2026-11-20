@@ -13,3 +13,4 @@ tmp*
 *.zip
 config/find-replace-history.ini
 config/agents.json
+doc/*.html
