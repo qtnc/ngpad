@@ -17,7 +17,7 @@ Notes de travail pour l'ajout d'agents IA dans l'éditeur. À relire avant de re
 - **Dialogue non modal plutôt qu'onglet** (décision révisée ; l'agent était d'abord un type de document comme la console). Le document actif de la fenêtre principale reste celui que l'utilisateur regarde, ce qui servira à `get_editor_context` : on pourra le lire à chaque envoi.
 - **Un agent par racine**, racine fixe pour toute sa durée de vie : `GetWorkspaceRoot()` du document actif s'il a un nom de fichier, sinon sélecteur de répertoire. Retrouvé par `App::FindAgent()` (parcours de `wxTopLevelWindows`, comparaison insensible à la casse). Pour travailler sur deux projets, on ouvre deux agents. Meilleure isolation entre projets.
   - Le modèle ne voit que des chemins relatifs à la racine, avec `/` comme séparateur. En entrée on accepte aussi `\`, un `/` initial (= racine de l'espace de travail, jamais la racine du disque) et les chemins absolus situés sous la racine. Tout ce qui sort de la racine est refusé (canonicalisation, `..`).
-- **Écritures** : confirmation à **chaque** écriture pour l'instant. Prochaine grande étape : les autorisations (voir la section « Autorisations »).
+- **Écritures** : confirmation à **chaque** écriture pour l'instant. Prochaine grande étape : les autorisations (conception terminée, voir la section « Autorisations »).
 - **Fichier déjà ouvert** : lecture ET écriture dans le contenu de l'éditeur (`FindEditor()`, `ReplaceAndPushUndoState`), sans enregistrement automatique. Fichier fermé : lecture / écriture sur disque (`LoadFile` / `SaveFile` + editorconfig). La confirmation indique lequel des deux cas s'applique.
 - **Pas de streaming** : on attend la réponse complète.
 - **Markdown** affiché tel quel. Plus tard peut-être une vue web.
@@ -37,27 +37,34 @@ Notes de travail pour l'ajout d'agents IA dans l'éditeur. À relire avant de re
 
 ## Format de configuration (`config/agents.json`)
 
-Tableau d'objets :
+Tableau d'objets, ou (prévu avec les autorisations) objet `{"defaults": {...}, "agents": [...]}` :
 
 ```json
 {
-  "name": "Local test agent",
-  "api": "openai-chat",
-  "url": "http://localhost:1235/v1/",
-  "model": "mistralai/ministral-3-3b",
-  "headers": {},
-  "systemPrompt": "...",
-  "temperature": 0.2,
-  "maxTokens": 4096,
-  "timeout": 600,
-  "tools": "all",
-  "permissions": "ask",
-  "maxToolIterations": 15,
-  "extraBody": {}
+  "defaults": {
+    "allowedCommands": ["git status", "git diff", "git log", "make *"],
+    "readablePaths": ["C:/MinGW/include/"]
+  },
+  "agents": [{
+    "name": "Local test agent",
+    "api": "openai-chat",
+    "url": "http://localhost:1235/v1/",
+    "model": "mistralai/ministral-3-3b",
+    "headers": {},
+    "systemPrompt": "...",
+    "temperature": 0.2,
+    "maxTokens": 4096,
+    "timeout": 600,
+    "tools": { "*": "ask", "edit_file": "allow", "run_lua": "deny" },
+    "allowedCommands": ["npm test"],
+    "writablePaths": ["../shared/"],
+    "maxToolIterations": 15,
+    "extraBody": {}
+  }]
 }
 ```
 
-Seuls `name` et `url` sont obligatoires. `tools`, `permissions`, `maxToolIterations` : étapes 3-4.
+Seuls `name` et `url` sont obligatoires. Voir la section « Autorisations » pour `tools`, `allowedCommands`, `readablePaths`, `writablePaths` et `defaults`.
 
 ## Outils prévus
 
@@ -164,15 +171,75 @@ Option utilisateur pour choisir corbeille ou suppression définitive (où et com
 
 Avec `run_command` et `run_lua`, l'agent peut sortir complètement de la racine : la confirmation est le seul garde-fou. Mais confirmer chaque action devient vite pénible et pousse à cliquer « Autoriser » sans lire, ce qui est pire qu'une politique explicite.
 
-Décision de départ (simple) :
-- Un paramètre **global** par agent, plus un paramètre **par outil** qui le remplace : `ask` (confirmer) / `allow` (sans confirmation) / `deny` (outil refusé, ou retiré de la liste envoyée au modèle). Noms exacts et forme JSON à fixer.
-- Une **liste blanche d'expressions régulières pour `run_command`**, le seul cas particulier : une commande correspondante est exécutée sans confirmation même si l'outil est en `ask`.
-- Le paramètre `tools` existant reste la façon de retirer complètement un outil ; à voir si `deny` le remplace ou le complète.
+Conception discutée et validée le 2026-11-20.
+
+### Permissions des outils (clé `tools`)
+- Valeurs : `allow` (sans confirmation), `ask` (confirmer), `deny` (outil absent), `default` (permission intégrée de l'outil).
+- Chaque outil a une **permission intégrée** (`AgentTool::defaultPermission`) : `allow` pour les outils sans effet (`list_files`, `read_file`, `search_files`, `get_editor_context`, `open_in_editor`), `ask` pour les autres.
+- Une seule clé `tools` (pas de clé `permissions` séparée), trois formes :
+  - **absente** : tous les outils, permission intégrée ;
+  - **tableau de noms** : seulement ces outils, permission intégrée (`[]` = aucun outil) ;
+  - **objet** : chaque outil listé reçoit la valeur donnée. La clé `"*"` désigne les outils non listés : ceux qui ont des effets prennent sa valeur, ceux sans effet gardent toujours leur permission intégrée (`allow`), donc `{"*": "deny"}` = agent en lecture seule. Sans `"*"`, les outils non listés sont absents (liste fermée).
+- Vocabulaire : `"*"` est toujours un **sélecteur** (clé = « tous les autres outils »), `default` toujours une **valeur** (« permission intégrée »). Le `"all"` de l'étape 5 est supprimé (absent = tous). Pas de compatibilité à préserver.
+- `deny` ne sert qu'avec `"*"` (exclure un outil d'un ensemble) : sinon il suffit de ne pas lister l'outil.
+- Un outil `deny` ou absent n'est pas envoyé au modèle ; s'il est appelé quand même : `Error:` indiquant qu'il est désactivé par la configuration. Les messages de refus distinguent toujours « refusé par la configuration » et « refusé par l'utilisateur » (pour que le modèle ne réessaie pas en boucle).
+
+### Garde-fous (même en `allow`)
+- **`run_command`** : une commande qui correspond à `allowedCommands` s'exécute sans confirmation ; les autres demandent toujours confirmation. Seul un `allow` **sur la clé `run_command` elle-même** lève ce garde-fou (`"*": "allow"` ne suffit pas). À expliquer clairement dans la doc (usage prévu : VM, bac à sable).
+- **`run_lua`** : même règle (toujours confirmer, sauf `allow` explicite sur sa propre clé). Pas de liste blanche possible : le code est arbitraire et a accès à `os.execute`, `io.open`...
+- **Chemins hors racine** : aujourd'hui refusés ; désormais :
+  - dans la racine, ou couverts par `readablePaths` (lecture) / `writablePaths` (lecture et écriture) : permission normale de l'outil ;
+  - sinon : confirmation **toujours** demandée, quelle que soit la permission de l'outil.
+  - S'applique à tous les outils qui prennent un chemin, y compris `cwd` de `run_command`.
+- Refuser reste le bouton par défaut pour `delete_file`, `run_command`, `run_lua`. Pas d'autre garde-fou fixe.
+
+### Liste blanche de commandes (`allowedCommands`)
+- Style glob : `*` = n'importe quels caractères (espaces compris), `?` = un caractère. Casse ignorée.
+- Ancrage au début implicite, fin ouverte, mais coupure sur une limite de mot : `git status` correspond à `git status -s`, pas à `git statusx`.
+- Comparée à la commande donnée par le modèle (espaces de début et de fin retirés), pas à la ligne construite avec `shell`.
+- **Jamais d'approbation automatique** si la commande contient `&`, `|`, `<`, `>`, `^`, `%` ou un saut de ligne (sinon `git status & del /s /q *` passerait). Plus tard : découper sur `&&`, `||`, `&`, `|` et vérifier chaque partie.
+
+### Chemins hors racine (`readablePaths`, `writablePaths`)
+- Globs (`GlobToRegEx`) ; une entrée sans joker ou finissant par `/` = le dossier et tout son contenu. Entrée relative = résolue depuis la racine de l'agent (ex. `../shared/`). `writablePaths` implique la lecture.
+- Comparaison après canonicalisation (`..`), normalisation en `/`, casse ignorée.
+- Le modèle voit **toujours** `/` : relatif dans la racine (`src/App.cpp`), absolu en dehors (`C:/MinGW/include/stdio.h`), UNC en `//serveur/partage/...`. En entrée, `/` et `\` acceptés (arguments des outils et config). Attention : un `/` initial seul reste la racine de l'espace de travail, mais `//` (UNC) et `X:/` sont absolus.
+- `list_files` / `search_files` sur un dossier hors racine renvoient des chemins absolus.
+- `ResolvePath` passe de deux états (accepté / refusé) à trois : dans la racine, hors racine autorisé, hors racine à confirmer (avec distinction lecture / écriture).
+
+### Dialogue de confirmation
+- Boutons : **Autoriser** (une fois), **Autoriser pour la session**, **Toujours autoriser**, **Refuser**, **Arrêter l'agent**.
+- Portée de « session » / « toujours » selon la raison de la demande :
+
+| Raison | Portée | « Toujours » écrit dans |
+|---|---|---|
+| outil en `ask` (`edit_file`...) | l'outil entier | `tools` de l'agent (`"outil": "allow"`) |
+| commande hors liste blanche | motif **modifiable** dans le dialogue, pré-rempli avec le programme et la sous-commande (`git diff`) | `allowedCommands` de l'agent |
+| chemin hors racine | dossier concerné, modifiable | `readablePaths` ou `writablePaths` de l'agent |
+| `run_lua`, `delete_file` | « Autoriser » une fois seulement (pas de session ni de toujours) | — |
+
+- Autorisations de session gardées dans `AgentSession` jusqu'à la fermeture de l'agent (`/clear` ne les oublie pas).
+- « Toujours » écrit dans l'entrée de l'agent dans `agents.json` (retrouvée par son nom), jamais dans `defaults`. Réécriture avec `nlohmann::ordered_json` pour garder l'ordre des clés ; les commentaires sont perdus (à dire dans la doc). Si `tools` est un tableau ou absent, il est d'abord converti en objet (`["a","b"]` → `{"a":"default","b":"default"}`, absent → `{"*":"default"}`).
+- Un motif de commande créé par « session » / « toujours » suit les mêmes règles que `allowedCommands` (une commande composée demande toujours).
+
+### Valeurs communes (`defaults`)
+- `agents.json` accepte un tableau (comme aujourd'hui) ou `{"defaults": {...}, "agents": [...]}`. Toute clé d'agent est permise dans `defaults` (`shell`, `limits`, `timeout`...).
+- Fusion (petite fonction maison : `merge_patch` de nlohmann remplace les tableaux au lieu de les concaténer) :
+  - objets (`limits`, `headers`, `tools` objet) : fusion récursive, la valeur de l'agent gagne ;
+  - `allowedCommands`, `readablePaths`, `writablePaths` : concaténation ;
+  - tout le reste, y compris `tools` sous forme de tableau : la valeur de l'agent remplace.
+
+### Plan d'implémentation
+1. `defaults` et fusion dans `AgentConfig`.
+2. Nouvelle forme de `tools`, `AgentTool::defaultPermission`, calcul de la permission effective, outils absents non envoyés.
+3. `allowedCommands` : correspondance glob, limite de mot, refus des métacaractères.
+4. `ResolvePath` à trois états, `readablePaths` / `writablePaths`, chemins absolus en `/` dans les sorties.
+5. Dialogue de confirmation à 5 boutons, champ de motif modifiable, autorisations de session.
+6. « Toujours autoriser » : réécriture d'`agents.json`.
+7. Doc `doc/agents.md` et `config/agents.example.json`.
 
 Pistes pour plus tard :
-- Bouton « Toujours autoriser pendant cette conversation » dans la confirmation (par outil, ou pour une commande précise).
-- Garde-fous non désactivables ? Par ex. suppression toujours confirmée avec Refuser par défaut. À discuter.
-- Les outils de lecture n'ont jamais besoin de confirmation.
+- Découpage des commandes composées pour la liste blanche.
+- Chemins interdits même dans la racine (`.git/`, `.env`...).
 
 ## Commandes et menus prévus (étape 2)
 
@@ -237,7 +304,7 @@ Menu contextuel (pas de barre de menus dans le dialogue) : copier, tout sélecti
   - À vérifier en test : en mode SDI/MDI, `GetCurrentDocument()` pourrait être nul quand le dialogue de l'agent a le focus (la fenêtre enfant désactive sa vue). En mode onglets (défaut) ça devrait aller. Sinon, mémoriser le dernier document actif.
     Si aucun document actif n'est trouvé, `get_editor_context` le dit simplement (pas d'erreur) et la boucle continue.
   - Corrigé dans le saut rapide (`qjFind`) : l'option `i` rendait la recherche sensible à la casse (`FRI_ICASE` = sensible). Désormais `/x/` est sensible et `/x/i` insensible, comme dans `doc/quickJump.md`.
-  - `tools` accepte `"all"` (chaîne, ou tableau contenant `"all"`) ; absent = tous les outils, `[]` = aucun. Un outil non activé appelé quand même par le modèle est refusé (`AgentSession::HandleToolCalls`), pas exécuté.
+  - `tools` accepte `"all"` (chaîne, ou tableau contenant `"all"`) ; absent = tous les outils, `[]` = aucun. (`"all"` sera supprimé avec les autorisations, voir cette section.) Un outil non activé appelé quand même par le modèle est refusé (`AgentSession::HandleToolCalls`), pas exécuté.
   - [x] Documentation utilisateur : `doc/agents.md` (→ `agents.html` via `make doc`, inclus dans le zip par `z.bat`, ainsi que `config/agents.example.json`). **À compléter à chaque nouvel outil ou paramètre de configuration** ; n'y décrire que ce qui est implémenté.
   - [x] Statistiques de tokens (compilé ; à tester dans l'interface) : champ `usage` standard de `chat/completions` (`prompt_tokens`, `completion_tokens`, `prompt_tokens_details.cached_tokens` ; acceptés aussi : `input_tokens`/`output_tokens`, `prompt_cache_hit_tokens` de DeepSeek). Cumul sur toutes les requêtes d'un échange (`TokenUsage`, `AgentSession::GetLastUsage`), ligne « Tokens: … » après la réponse. Rien n'est affiché si le serveur ne renvoie pas `usage` ; la partie cache seulement si le serveur la fournit. Pas affiché en cas d'erreur ou d'annulation. Commande `/tokens` : totaux depuis le début de la conversation (`AgentSession::GetTotalUsage`), y compris les échanges échoués, annulés ou retirés par `/undo` (tokens réellement consommés), remis à zéro par `/clear` ; plus la taille du contexte à la dernière requête (`TokenUsage::lastInput`).
   - [x] `replace_in_files`, `run_command`, `run_lua` (compilés ; à tester dans l'interface). Voir les fiches ci-dessus.
@@ -250,3 +317,5 @@ Menu contextuel (pas de barre de menus dans le dialogue) : copier, tout sélecti
     - Confirmation avec texte long (`ShowConfirmDetailsDialog` dans `AgentDialog.cpp`) : message, zone de texte en lecture seule qui a le focus, Autoriser / Refuser / Arrêter l'agent. Refuser par défaut pour `run_command` et `run_lua`.
   - `search_files` a maintenant un paramètre `ignore_case` (défaut true).
   - Corrigé au passage : `luabinding.hpp` utilisait `std::variant` sans inclure `<variant>`.
+- [ ] Autorisations : conception validée (section « Autorisations »), implémentation selon le plan en 7 points.
+  - [x] 1. `defaults` et fusion (`MergeDefaults` dans `AgentConfig.cpp`, compilé ; à tester). La concaténation des trois listes blanches est déjà en place ; la doc ne la décrira qu'avec les listes elles-mêmes.

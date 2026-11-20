@@ -49,6 +49,25 @@ if (!toolsSpecified) return true;
 return std::find(tools.begin(), tools.end(), name)!=tools.end();
 }
 
+// Keys whose array values from defaults are concatenated with those of the agent, instead of being replaced
+static bool IsConcatenatedKey (const std::string& key) {
+return key=="allowedCommands" || key=="readablePaths" || key=="writablePaths";
+}
+
+// Merge defaults into an agent entry: missing keys are copied, objects are merged recursively, the whitelists above are concatenated (defaults first), and any other value of the agent wins
+static void MergeDefaults (json& target, const json& defaults, bool topLevel) {
+for (auto& [key, value]: defaults.items()) {
+if (!target.contains(key)) target[key] = value;
+else {
+json& t = target[key];
+if (t.is_object() && value.is_object()) MergeDefaults(t, value, false);
+else if (topLevel && IsConcatenatedKey(key) && t.is_array() && value.is_array()) {
+json merged = value;
+for (auto& item: t) merged.push_back(item);
+t = std::move(merged);
+}}}
+}
+
 bool AgentConfig::LoadAll (std::vector<AgentConfig>& configs, wxString& error) {
 wxString path = wxGetApp().FindAppFile(AGENTS_CONFIG_FILENAME);
 if (path.empty()) {
@@ -58,9 +77,19 @@ return false;
 try {
 std::ifstream in(UFN(path));
 json j = json::parse(in, nullptr, true, true);
-if (!j.is_array()) throw std::runtime_error("root element must be an array");
-for (auto& item: j) {
+// Root: either an array of agents, or an object {"defaults": {...}, "agents": [...]}
+json defaults = json::object(), agents;
+if (j.is_array()) agents = std::move(j);
+else if (j.is_object() && j.contains("agents") && j["agents"].is_array()) {
+agents = std::move(j["agents"]);
+if (j.contains("defaults")) {
+if (!j["defaults"].is_object()) throw std::runtime_error("\"defaults\" must be an object");
+defaults = std::move(j["defaults"]);
+}}
+else throw std::runtime_error("root element must be an array of agents, or an object with an \"agents\" array");
+for (auto& item: agents) {
 if (!item.is_object()) continue;
+MergeDefaults(item, defaults, true);
 auto c = FromJson(item);
 if (c.name.empty() || c.url.empty()) continue;
 configs.push_back(c);

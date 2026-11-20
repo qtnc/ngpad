@@ -124,6 +124,20 @@ An example is given in `config/agents.example.json`: copy it to `config/agents.j
 The file contains an array of objects, one per agent. Comments are allowed.
 Only `name` and `url` are required.
 
+The file can also be an object with two keys: `agents`, the array of agents, and `defaults`, an object giving values common to all agents. Any key of an agent can be given in `defaults`. When an agent gives the same key, its own value is used; when both values are objects, such as `limits` or `headers`, they are merged key by key, the agent still winning.
+
+```json
+{
+"defaults": { "timeout": 300, "limits": { "readMaxLines": 300 } },
+"agents": [
+{ "name": "Local agent", "url": "http://localhost:1234/v1/" },
+{ "name": "Other agent", "url": "http://localhost:5678/v1/", "limits": { "listMaxEntries": 100 } }
+]
+}
+```
+
+Here, both agents have a timeout of 300 seconds and read at most 300 lines; the second one also lists at most 100 entries.
+
 Key | Value type | Default value | Description
 -----|-----|-----|-----
 name | string | | Name of the agent, shown in the window title and when choosing an agent
