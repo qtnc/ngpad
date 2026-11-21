@@ -120,9 +120,10 @@ return pattern;
 
 static std::string BuildCommandLine (const std::string& shell, const std::string& command) {
 std::string cmd = shell.empty()? DEFAULT_AGENT_SHELL : shell;
-size_t pos = cmd.find("{command}");
+const std::string var = "${command}";
+size_t pos = cmd.find(var);
 if (pos==std::string::npos) return cmd + " " + command;
-return cmd.replace(pos, 9, command);
+return cmd.replace(pos, var.size(), command);
 }
 
 ToolResult ToolRunCommand (const json& args, const ToolContext& context) {

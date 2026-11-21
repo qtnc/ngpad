@@ -7,7 +7,9 @@
 #include<functional>
 
 #define AGENTS_CONFIG_FILENAME "config/agents.json"
-#define DEFAULT_AGENT_SHELL "cmd /s /c \"{command}\""
+#define DEFAULT_AGENT_SHELL "cmd /s /c \"${command}\""
+// Reasoning levels accepted by /effort, substituted to ${effort} in extraBody
+#define AGENT_EFFORT_LEVELS { "none", "minimal", "low", "medium", "high", "xhigh" }
 
 struct AgentLimits {
 int readMaxLines = 500;
@@ -24,6 +26,7 @@ enum class ToolPermission { Default, Allow, Ask, Deny };
 
 struct AgentConfig {
 std::string name, api, url, model, systemPrompt, shell;
+std::string effort; // Initial reasoning level, empty if none; only used through ${effort} in extraBody
 std::string conversationsDir; // As given in the configuration: empty = default directory, relative = from the workspace root
 nlohmann::json headers, extraBody;
 double temperature = -1;
@@ -40,6 +43,9 @@ std::vector<std::string> readablePaths, writablePaths; // Files and directories 
 AgentLimits limits;
 
 static AgentConfig FromJson (const nlohmann::json& j);
+// Replace ${env:NAME} and ${file:path} in all the string values of an entry (not in keys). The substituted text is never parsed again.
+// Relative file paths are resolved from configDir. Other ${...} are kept as is, as ${command} and ${effort} which are substituted later.
+static void ExpandVariables (nlohmann::json& j, const wxString& configDir, const std::string& agent);
 static bool LoadAll (std::vector<AgentConfig>& configs, wxString& error);
 // Modify the entry of an agent in agents.json, found by its name. The order of keys is kept, but comments are lost.
 // The previous file is kept as agents.json.bak. update receives the entry, and the defaults (empty object if none).

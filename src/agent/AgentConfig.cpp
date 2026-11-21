@@ -3,6 +3,8 @@
 #include "../common/println.hpp"
 #include <wx/filefn.h>
 #include <wx/log.h>
+#include <wx/filename.h>
+#include <wx/utils.h>
 #include<fstream>
 #include<iterator>
 #include<algorithm>
@@ -43,6 +45,7 @@ c.temperature = j.value("temperature", -1.0);
 c.maxTokens = j.value("maxTokens", -1);
 c.timeout = j.value("timeout", 600);
 c.shell = j.value("shell", DEFAULT_AGENT_SHELL);
+c.effort = j.value("effort", "");
 c.conversationsDir = j.value("conversationsDir", "");
 if (j.contains("headers") && j["headers"].is_object()) c.headers = j["headers"];
 else c.headers = json::object();
@@ -80,6 +83,55 @@ c.limits.commandTimeout = l.value("commandTimeout", c.limits.commandTimeout);
 c.limits.commandMaxTimeout = l.value("commandMaxTimeout", c.limits.commandMaxTimeout);
 }
 return c;
+}
+
+static std::string ReadVariableFile (const std::string& name, const wxString& configDir, const std::string& agent) {
+wxFileName fn(U(name));
+if (!fn.IsAbsolute()) fn.MakeAbsolute(configDir);
+std::ifstream in(UFN(fn.GetFullPath()), std::ios::binary);
+if (!in) throw std::runtime_error(format("agent \"{}\": unable to read the file {} of ${{file:{}}}", agent, U(fn.GetFullPath()), name));
+std::string content((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+if (content.compare(0, 3, "\xEF\xBB\xBF")==0) content.erase(0, 3);
+// Final line ends removed, so that a file containing an API key can end with a new line
+while (!content.empty() && (content.back()=='\n' || content.back()=='\r')) content.pop_back();
+return content;
+}
+
+static std::string ExpandString (const std::string& s, const wxString& configDir, const std::string& agent) {
+std::string result;
+size_t pos = 0;
+while (true) {
+size_t start = s.find("${", pos);
+if (start==std::string::npos) break;
+size_t end = s.find('}', start +2);
+if (end==std::string::npos) break;
+std::string name = s.substr(start +2, end -start -2), value;
+if (name.compare(0, 4, "env:")==0) {
+wxString v;
+if (!wxGetEnv(U(name.substr(4)), &v)) throw std::runtime_error(format("agent \"{}\": environment variable {} of ${{{}}} not defined", agent, name.substr(4), name));
+value = U(v);
+}
+else if (name.compare(0, 5, "file:")==0) value = ReadVariableFile(name.substr(5), configDir, agent);
+else {
+// Unknown here: kept for a later substitution
+result.append(s, pos, end +1 -pos);
+pos = end +1;
+continue;
+}
+result.append(s, pos, start -pos);
+result += value;
+pos = end +1;
+}
+result.append(s, pos, std::string::npos);
+return result;
+}
+
+void AgentConfig::ExpandVariables (json& j, const wxString& configDir, const std::string& agent) {
+if (j.is_string()) {
+auto& s = j.get_ref<std::string&>();
+if (s.find("${")!=std::string::npos) s = ExpandString(s, configDir, agent);
+}
+else if (j.is_object() || j.is_array()) for (auto& item: j) ExpandVariables(item, configDir, agent);
 }
 
 bool AgentConfig::UpdateEntry (const std::string& agentName, const EntryUpdater& update, wxString& error) {
@@ -181,6 +233,7 @@ else throw std::runtime_error("root element must be an array of agents, or an ob
 for (auto& item: agents) {
 if (!item.is_object()) continue;
 MergeDefaults(item, defaults, true);
+ExpandVariables(item, wxFileName(path).GetPath(), item.value("name", ""));
 auto c = FromJson(item);
 if (c.name.empty() || c.url.empty()) continue;
 configs.push_back(c);

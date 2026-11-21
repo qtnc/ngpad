@@ -31,7 +31,7 @@ typedef std::function<void(const std::string& body, const std::string& error)> R
 
 AgentConfig config;
 wxString root;
-std::string model;
+std::string model, effort;
 nlohmann::json messages;
 wxWebRequest request;
 bool busy = false; // An HTTP request is pending
@@ -53,7 +53,7 @@ bool StartRequest (const std::string& path, const std::string& body, const RawCa
 void OnRequestDone (const wxWebRequestEvent& e, const RawCallback& callback);
 bool SendChatRequest ();
 void OnChatResponse (const std::string& body, std::string error);
-void HandleToolCalls (const nlohmann::json& message);
+void HandleToolCalls (nlohmann::json message);
 void OnToolCallsDone (const nlohmann::json& calls, const std::vector<ToolResult>& results, bool stopped);
 void FailExchange (const std::string& error);
 
@@ -65,6 +65,8 @@ const AgentConfig& GetConfig () const { return config; }
 const wxString& GetRoot () const { return root; }
 const std::string& GetModel () const { return model; }
 void SetModel (const std::string& m) { model = m; }
+const std::string& GetEffort () const { return effort; }
+void SetEffort (const std::string& e) { effort = e; }
 bool IsBusy () const { return busy || toolsRunning; }
 const TokenUsage& GetLastUsage () const { return usage; }
 const TokenUsage& GetTotalUsage () const { return totalUsage; }

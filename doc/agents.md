@@ -45,6 +45,8 @@ Command | Effect
 `/clear` | Clear the conversation
 `/model` | List available models
 `/model name` | Use another model
+`/effort` | Show the current reasoning level and the possible levels
+`/effort level` | Change the reasoning level: `none`, `minimal`, `low`, `medium`, `high` or `xhigh`, or `default` to use the level of the configuration again. The level is only sent to the server where `${effort}` appears in `extraBody` (see the Configuration section). It is saved with the conversation
 `/undo` | Remove the last exchange (your message and the answer) from the conversation
 `/retry` | Remove the last exchange and send the same message again
 `/save` | Save the conversation, as Ctrl+S
@@ -67,9 +69,9 @@ Conversations are saved in files with the extension `.chat.json`, which can be o
 
 A saved conversation can be opened with Ctrl+O in a conversation window, or with Shift+F11 from the main window. It always opens with its own workspace root, whatever the active document. With Ctrl+O, it replaces the conversation of the window if it uses the same agent and the same workspace root, the current conversation staying in its file; otherwise, it opens in a new window. If the conversation is already open in a window, this window is shown instead. If the workspace root doesn't exist anymore, or the agent isn't in the configuration anymore, you are asked to choose another one.
 
-The window is restored as it was: messages, answers, tool calls, errors, outputs of commands, title, model and the totals of `/tokens`. `/undo` and `/retry` work as before. However, permissions given with Allow for this session aren't restored, nor the global variables defined by `run_lua`.
+The window is restored as it was: messages, answers, tool calls, errors, outputs of commands, title, model, reasoning level and the totals of `/tokens`. `/undo` and `/retry` work as before. However, permissions given with Allow for this session aren't restored, nor the global variables defined by `run_lua`.
 
-The file contains, in JSON, the messages exactly as they are sent to the server (key `messages`, with the tool calls and their results), the system prompt for information (it is computed again from the configuration when the conversation is opened), and what is displayed in the window (key `transcript`). Be careful: it therefore contains everything the agent has read, including the content of files.
+The file contains, in JSON, the messages exactly as they are sent to the server (key `messages`, with the tool calls and their results; the answers of the model are kept with all the fields returned by the server, such as its reasoning, and sent back as they are in the next requests), the system prompt for information (it is computed again from the configuration when the conversation is opened), and what is displayed in the window (key `transcript`). Be careful: it therefore contains everything the agent has read, including the content of files.
 While the agent is working, only the completed exchanges are saved.
 
 ## Tools
@@ -117,7 +119,7 @@ When a file is deleted by `delete_file`, the corresponding open tabs are closed 
 
 ### Commands
 
-`run_command` runs a command line through the shell given by the `shell` setting of the agent, by default `cmd /s /c "{command}"`. The working directory is the workspace root, or one of its subdirectories chosen by the agent.
+`run_command` runs a command line through the shell given by the `shell` setting of the agent, by default `cmd /s /c "${command}"`. The working directory is the workspace root, or one of its subdirectories chosen by the agent.
 Note that a command can do anything your user account can do, including accessing files outside of the workspace: always read it before allowing it. Commands which don't need a confirmation can be listed in `allowedCommands` (see the Configuration section).
 
 - The command can't read any input, and no window is shown.
@@ -173,6 +175,16 @@ Here, both agents have a timeout of 300 seconds and read at most 300 lines; the 
 
 `allowedCommands`, `readablePaths` and `writablePaths` are an exception: the items given in `defaults` and those of the agent are added together.
 
+In any string value, including in `headers`, `extraBody` and `defaults`, the following variables are replaced when the configuration is read:
+
+Variable | Replaced by
+-----|-----
+`${env:NAME}` | The value of the environment variable `NAME`. It is an error if it isn't defined
+`${file:path}` | The whole content of the file, read as UTF-8, without its final line ends. A relative path is relative to the directory containing `agents.json`. It is an error if the file can't be read
+
+For example, `"headers": { "Authorization": "Bearer ${file:openrouter.key}" }` keeps the API key out of `agents.json`, and `"systemPrompt": "${file:prompt.md}"` allows long instructions written in a file of their own.
+The replacement is made on values already read from the JSON: the content of a variable can contain quotes, backslashes or new lines without any escaping, and is never interpreted again (a file containing `${env:X}` stays as it is). Other `${...}` are kept, as `${command}` in `shell` and `${effort}` in `extraBody`, which are replaced later.
+
 Key | Value type | Default value | Description
 -----|-----|-----|-----
 name | string | | Name of the agent, shown in the window title and when choosing an agent
@@ -188,10 +200,11 @@ tools | array or object | all tools | Tools the agent can use, and their permiss
 allowedCommands | array | | Commands `run_command` can run without confirmation (see below)
 readablePaths | array | | Files and directories outside of the workspace the agent can read without asking (see below)
 writablePaths | array | | Files and directories outside of the workspace the agent can read and modify as in the workspace (see below)
-shell | string | cmd /s /c "{command}" | Command line used by `run_command`. `{command}` is replaced by the command given by the agent; without `{command}`, the command is added at the end. It can also be used to run commands through a program filtering their output, for example to reduce the number of tokens
+shell | string | cmd /s /c "${command}" | Command line used by `run_command`. `${command}` is replaced by the command given by the agent; without `${command}`, the command is added at the end. It can also be used to run commands through a program filtering their output, for example to reduce the number of tokens
 maxToolIterations | integer | 15 | Maximum number of successive tool call rounds for a single message. When exceeded, the agent stops with an error
 limits | object | | Limits on the size of tool results (see below)
-extraBody | object | | Additional parameters added as is to the body of each request, for parameters specific to a server or a model
+extraBody | object | | Additional parameters added as is to the body of each request, for parameters specific to a server or a model. `${effort}` is replaced by the current reasoning level (see below)
+effort | string | | Reasoning level at the start of the conversation: `none`, `minimal`, `low`, `medium`, `high` or `xhigh`. It can be changed later with `/effort`
 conversationsDir | string | | Directory where conversations are saved automatically, also proposed when saving or opening a conversation. By default, the `conversations` directory next to the `config` directory containing `agents.json`: in the user configuration directory, or in the directory of the application. A relative path is relative to the workspace root: `.` is the workspace root itself, `.agents` its subdirectory `.agents`. Missing directories are created
 
 ### Tools
@@ -236,6 +249,20 @@ Keep in mind that a command can do much more than it seems with some of its opti
 - `*` stands for any part of a file or directory name, `**` for any sequence of directories, and `?` for any single character: `C:/projects/*/include/**` designates the content of the `include` directory of every project.
 - Relative paths are relative to the workspace root: `../shared/` designates the directory `shared` next to the workspace.
 - `/` and `\` can both be used. Case is ignored.
+
+### Reasoning level
+
+Servers don't all expect the reasoning level in the same way. It is therefore only sent where you write `${effort}` in `extraBody`, in the format expected by your server. For example, with OpenRouter:
+
+```json
+"effort": "medium",
+"extraBody": { "reasoning": { "enabled": true, "effort": "${effort}" } }
+```
+
+With the OpenAI API, and servers following it: `"extraBody": { "reasoning_effort": "${effort}" }`.
+
+When no level is set (no `effort` key, and no `/effort` command), a value which is only `${effort}` is removed with its key: the default of the server is then used.
+Whatever the level, the reasoning of the model isn't displayed, but it is kept in the conversation and sent back to the server with the next requests, as some models require.
 
 ### Limits
 

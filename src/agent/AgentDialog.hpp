@@ -35,6 +35,7 @@ void Send (const wxString& prompt);
 void SendPrompt (const wxString& prompt);
 void ExecuteCommand (const wxString& name, const wxString& arg);
 void ChangeModel (const wxString& name);
+void ChangeEffort (const wxString& arg);
 void ShowModelList ();
 void ShowModelDialog ();
 void CancelRequest ();

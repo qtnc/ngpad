@@ -20,6 +20,7 @@ Notes de travail pour l'ajout d'agents IA dans l'éditeur. À relire avant de re
   - Le modèle ne voit que des chemins relatifs à la racine, avec `/` comme séparateur. En entrée on accepte aussi `\`, un `/` initial (= racine de l'espace de travail, jamais la racine du disque) et les chemins absolus situés sous la racine. Tout ce qui sort de la racine est refusé (canonicalisation, `..`).
 - **Écritures** : confirmation à **chaque** écriture pour l'instant. Prochaine grande étape : les autorisations (conception terminée, voir la section « Autorisations »).
 - **Fichier déjà ouvert** : lecture ET écriture dans le contenu de l'éditeur (`FindEditor()`, `ReplaceAndPushUndoState`), sans enregistrement automatique. Fichier fermé : lecture / écriture sur disque (`LoadFile` / `SaveFile` + editorconfig). La confirmation indique lequel des deux cas s'applique.
+- **Messages de l'assistant gardés tels quels** dans l'historique (tous les champs renvoyés, dont le raisonnement), pour les renvoyer sans perte. Raisonnement non affiché. Voir « Avancement ».
 - **Pas de streaming** : on attend la réponse complète.
 - **Markdown** affiché tel quel. Plus tard peut-être une vue web.
 - **Configuration** dans `config/agents.json` (application portable). Plus tard éventuellement : recherche dans %APPDATA% d'abord, et variables d'environnement dans la config avec la syntaxe `${env:NOM}`. Pas prioritaire tant qu'on n'utilise pas de vraies clés API.
@@ -60,7 +61,8 @@ Tableau d'objets, ou (prévu avec les autorisations) objet `{"defaults": {...}, 
     "allowedCommands": ["npm test"],
     "writablePaths": ["../shared/"],
     "maxToolIterations": 15,
-    "extraBody": {}
+    "effort": "medium",
+    "extraBody": { "reasoning": { "enabled": true, "effort": "${effort}" } }
   }]
 }
 ```
@@ -151,7 +153,7 @@ Communs aux deux outils d'écriture :
 - Retour : `Replaced N occurrences in M files:` puis `path: n` par fichier.
 
 **run_command(command, cwd?, timeout?)**
-- Ligne de commande construite avec `shell` (config par agent, défaut `cmd /s /c "{command}"` ; sans `{command}`, la commande est ajoutée à la fin). Peut servir à passer par un filtre de sortie du genre rtk, si l'outil accepte la commande en arguments.
+- Ligne de commande construite avec `shell` (config par agent, défaut `cmd /s /c "${command}"` ; sans `${command}`, la commande est ajoutée à la fin). Peut servir à passer par un filtre de sortie du genre rtk, si l'outil accepte la commande en arguments.
 - `cwd` relatif à la racine, contrôlé par `ResolvePath` (la commande elle-même peut évidemment tout faire : ce n'est pas un bac à sable).
 - API wxWidgets uniquement (une première version en Win32 direct a été abandonnée). `wxExecute` asynchrone doit être appelé sur le thread principal : lancement via `RunEDTSync` avec un `wxProcess` redirigé (`wxEXEC_HIDE_CONSOLE`, `wxExecuteEnv::cwd`), entrée fermée aussitôt (`CloseOutput`). `wxEVT_END_PROCESS` (thread principal) met à jour un état partagé (fin, code de sortie). Le thread des outils lit stdout et stderr sans bloquer (`CanRead` / `Read`, comme `LiveTextAppender` pour la console). Délai ou annulation : `wxProcess::Kill(pid, wxSIGKILL, wxKILL_CHILDREN)` sur le thread principal. Fin : `delete` du `wxProcess` sur le thread principal si la fin a été notifiée, sinon `Detach()` (il se supprime à la fin du processus).
   - stdout et stderr sont deux tubes séparés : l'ordre relatif des deux est approximatif (lus alternativement). Si ça gêne : `2>&1` dans `shell`.
@@ -385,3 +387,10 @@ Menu contextuel (pas de barre de menus dans le dialogue) : copier, tout sélecti
   - `IDM_AGENT_SAVE_AS` (Ctrl+Shift+S), `IDM_AGENT_OPEN` (Ctrl+O), `IDM_OPEN_AGENT_CONVERSATION` (Shift+F11, menu Outils).
   - Échap seul ne fait plus rien (`SetEscapeId(wxID_NONE)` + `OnCharHook`) ; Shift+Échap annule toujours. `wxMINIMIZE_BOX` ajouté ; `ShowAgent` restaure une fenêtre réduite (confirmations).
   - `/title texte` (sans texte : titre par défaut), enregistré dans le fichier et proposé comme nom de fichier par Ctrl+Shift+S.
+- [x] Raisonnement, `/effort`, variables de configuration (2026-11-21 ; compilé, à tester dans l'interface).
+  - Messages de l'assistant gardés tels que renvoyés par le serveur (`MakeAssistantMessage`) : tous les champs en plus (`reasoning`, `reasoning_details`, `reasoning_content`, signatures...) sont renvoyés sans perte dans les requêtes suivantes et enregistrés dans le `.chat.json`. Seuls les champs `null` sont retirés, `role` forcé à `assistant`, `content` toujours une chaîne (vide si absent / null). Le texte du raisonnement n'est pas affiché.
+  - Risque connu : un serveur strict pourrait refuser un champ inconnu dans l'historique (ex. DeepSeek et `reasoning_content` selon les versions de son API). Si ça arrive : liste de champs à retirer dans la config (pas fait).
+  - `effort` (config, valeur initiale) et `/effort [niveau|default]` ; niveaux fixes `AGENT_EFFORT_LEVELS` (none, minimal, low, medium, high, xhigh). Envoyé seulement via `${effort}` dans les valeurs de `extraBody` (`SubstituteEffort`, sur une copie à chaque requête) ; sans niveau, une valeur égale à `${effort}` est retirée avec sa clé. Enregistré dans la conversation (clé `effort`).
+  - `${env:NOM}` et `${file:chemin}` (relatif au dossier de `agents.json`) remplacés au chargement dans toutes les valeurs chaînes, après fusion des `defaults` (`AgentConfig::ExpandVariables`). Remplacement sur le JSON déjà analysé, donc pas d'injection possible, et en une seule passe (le contenu substitué n'est pas réinterprété). Fichier : BOM UTF-8 et fins de ligne finales retirés. Variable non définie / fichier illisible : erreur de chargement. Les autres `${...}` sont laissés pour plus tard. Pas de syntaxe d'échappement.
+  - `UpdateEntry` (Toujours autoriser) relit le fichier brut : les `${...}` y sont conservés.
+  - `shell` : `{command}` devient `${command}` (ancienne syntaxe plus reconnue ; `agents.json` et l'exemple mis à jour).

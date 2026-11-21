@@ -6,7 +6,7 @@
 "timeout": 600,
 "tools": { "*": "ask", "edit_file": "allow" },
 "allowedCommands": ["git status", "git diff", "git log"],
-"shell": "cmd /s /c \"{command}\"",
+"shell": "cmd /s /c \"${command}\"",
 "maxToolIterations": 15,
 "limits": { "readMaxLines": 500, "listMaxEntries": 500, "searchMaxResults": 100, "searchMaxLineLength": 200, "maxResultChars": 50000, "commandTimeout": 60, "commandMaxTimeout": 600 }
 },

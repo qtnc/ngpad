@@ -84,7 +84,7 @@ return u;
 }
 
 AgentSession::AgentSession (const AgentConfig& cfg, const wxString& root0):
-config(cfg), root(root0), model(cfg.model), messages(json::array()), alive(std::make_shared<bool>(true)),
+config(cfg), root(root0), model(cfg.model), effort(cfg.effort), messages(json::array()), alive(std::make_shared<bool>(true)),
 cancelled(std::make_shared<std::atomic<bool>>(false)), luaEnv(std::make_shared<LuaEnvironment>()), grants(std::make_shared<SessionGrants>())
 {}
 
@@ -147,9 +147,37 @@ request.Cancel();
 return true;
 }
 
+// ${effort} in the string values of extraBody. Without effort, a value that is only ${effort} removes its key.
+static void SubstituteEffort (json& j, const std::string& effort) {
+const std::string var = "${effort}";
+if (j.is_object()) {
+for (auto it = j.begin(); it!=j.end(); ) {
+if (effort.empty() && it->is_string() && it->get<std::string>()==var) it = j.erase(it);
+else SubstituteEffort(*it++, effort);
+}}
+else if (j.is_array()) for (auto& item: j) SubstituteEffort(item, effort);
+else if (j.is_string()) {
+auto& s = j.get_ref<std::string&>();
+for (size_t pos = s.find(var); pos!=std::string::npos; pos = s.find(var, pos + effort.size())) s.replace(pos, var.size(), effort);
+}}
+
+// The assistant message as returned by the model, so that its additional fields (reasoning, reasoning_details, signatures...)
+// are sent back unchanged in the next requests. Null fields are removed, and content is always a string.
+static json MakeAssistantMessage (json message) {
+for (auto it = message.begin(); it!=message.end(); ) {
+if (it->is_null()) it = message.erase(it);
+else ++it;
+}
+message["role"] = "assistant";
+if (!message.contains("content") || !message["content"].is_string()) message["content"] = "";
+return message;
+}
+
 json AgentSession::BuildRequestBody () {
 json body = json::object();
-for (auto& [key, value]: config.extraBody.items()) body[key] = value;
+json extra = config.extraBody;
+SubstituteEffort(extra, effort);
+for (auto& [key, value]: extra.items()) body[key] = value;
 if (!model.empty()) body["model"] = model;
 json tools = AgentTools::GetDefinitions(config);
 std::string systemPrompt = BuildSystemPrompt(!tools.empty());
@@ -271,7 +299,7 @@ return;
 }
 std::string content = message.contains("content") && message["content"].is_string()? message["content"].get<std::string>() : "";
 if (!content.empty()) {
-messages.push_back({ {"role", "assistant"}, {"content", content} });
+messages.push_back(MakeAssistantMessage(message));
 pendingCallback(true, U(content));
 return;
 }
@@ -324,7 +352,7 @@ default: break;
 if (!ok) wxMessageBox(error, MSG("Error"), wxICON_ERROR | wxOK);
 }
 
-void AgentSession::HandleToolCalls (const json& message) {
+void AgentSession::HandleToolCalls (json message) {
 if (++toolIterations > config.maxToolIterations) {
 FailExchange(format(GetTranslation("AgentTooManyToolCalls"), config.maxToolIterations));
 return;
@@ -333,8 +361,8 @@ json calls = message["tool_calls"];
 for (size_t i=0; i<calls.size(); i++) {
 if (!calls[i].contains("id") || !calls[i]["id"].is_string()) calls[i]["id"] = format("call_{}_{}", toolIterations, i);
 }
-std::string content = message.contains("content") && message["content"].is_string()? message["content"].get<std::string>() : "";
-messages.push_back({ {"role", "assistant"}, {"content", content}, {"tool_calls", calls} });
+message["tool_calls"] = calls;
+messages.push_back(MakeAssistantMessage(message));
 ToolContext context(root, config.limits);
 // Called on the main thread: the dialog may have been closed, or the conversation cleared, in the meantime
 std::weak_ptr<bool> confirmAlive = alive;

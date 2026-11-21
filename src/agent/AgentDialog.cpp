@@ -222,6 +222,7 @@ else if (name=="model") {
 if (arg.empty()) ShowModelList();
 else ChangeModel(arg);
 }
+else if (name=="effort") ChangeEffort(arg);
 else if (name=="undo") UndoLastExchange(false);
 else if (name=="retry") UndoLastExchange(true);
 else if (name=="save") SaveConversation();
@@ -244,6 +245,26 @@ app.SayText(msg);
 }
 // The output of the command is part of the conversation; after /clear, nothing is saved until the next successful exchange
 AutoSave();
+}
+
+// Without argument: current level and list of levels; "default": level of the configuration
+void AgentDialog::ChangeEffort (const wxString& arg) {
+static const std::vector<std::string> levels = AGENT_EFFORT_LEVELS;
+std::string wanted = U(wxString(arg).Lower());
+if (wanted=="default") wanted = session->GetConfig().effort;
+bool valid = wanted.empty() || std::find(levels.begin(), levels.end(), wanted)!=levels.end();
+wxString msg;
+if (!arg.empty() && !valid) msg = U(format(GetTranslation("AgentEffortUnknown"), U(arg))) + "\n";
+else if (!arg.empty()) session->SetEffort(wanted);
+std::string current = session->GetEffort();
+msg += U(format(GetTranslation("AgentEffortCurrent"), current.empty()? GetTranslation("AgentEffortNone") : current));
+if (arg.empty() || !valid) {
+std::string list;
+for (auto& l: levels) list += (list.empty()? "" : ", ") + l;
+msg += "\n" + U(format(GetTranslation("AgentEffortLevels"), list));
+}
+editor->WriteInfo(msg);
+wxGetApp().SayText(msg.BeforeFirst('\n'));
 }
 
 void AgentDialog::SetCustomTitle (const wxString& title) {
@@ -338,6 +359,7 @@ data["agent"] = config.name;
 data["api"] = config.api;
 data["root"] = U(GetRoot());
 data["model"] = session->GetModel();
+data["effort"] = session->GetEffort();
 data["autoSaved"] = autoFile;
 // For information only: recomputed from the configuration when the conversation is opened again
 data["systemPrompt"] = session->GetSystemPrompt();
@@ -446,6 +468,7 @@ AutoSave();
 if (!session->Restore(data["messages"], TokenUsage::FromJson(data.value("usage", nlohmann::json::object())))) return false;
 std::string model = data.contains("model") && data["model"].is_string()? data["model"].get<std::string>() : "";
 if (!model.empty()) session->SetModel(model);
+if (data.contains("effort") && data["effort"].is_string()) session->SetEffort(data["effort"].get<std::string>());
 auto transcript = data.contains("transcript") && data["transcript"].is_array()? data["transcript"] : BuildTranscriptFromMessages(data["messages"]);
 editor->Restore(transcript, exchangeStarts);
 pendingStart = -1;
