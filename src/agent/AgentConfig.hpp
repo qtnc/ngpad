@@ -24,6 +24,7 @@ enum class ToolPermission { Default, Allow, Ask, Deny };
 
 struct AgentConfig {
 std::string name, api, url, model, systemPrompt, shell;
+std::string conversationsDir; // As given in the configuration: empty = default directory, relative = from the workspace root
 nlohmann::json headers, extraBody;
 double temperature = -1;
 int maxTokens = -1;

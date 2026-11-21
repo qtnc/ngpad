@@ -5,17 +5,18 @@ Notes de travail pour l'ajout d'agents IA dans l'éditeur. À relire avant de re
 ## Scénario utilisateur
 
 1. F11 ou menu Outils > Agent IA... → `App::OnOpenAgentDialog()`.
-2. La racine est celle du document actif (`App::ChooseAgentRoot()`). Si un agent existe déjà pour cette racine, son dialogue est réaffiché tel quel.
-3. Sinon, choix de l'agent parmi ceux configurés (SingleChoiceDialog ; sauté s'il n'y en a qu'un), puis ouverture d'un dialogue non modal (`AgentDialog`, `AgentEditor`). Titre = « Nom de l'agent (dossier) ».
+2. La racine est celle du document actif (`App::ChooseAgentRoot()`).
+3. Choix de l'agent parmi ceux configurés (SingleChoiceDialog ; sauté s'il n'y en a qu'un), puis ouverture d'un dialogue non modal (`AgentDialog`, `AgentEditor`). Titre = « Nom de l'agent (dossier) », modifiable par `/title`. F11 ouvre **toujours** une nouvelle conversation, même s'il y en a déjà pour la même racine.
 4. L'utilisateur tape son prompt et l'envoie avec Shift+Enter (`AgentEditor::OnShiftEnter()` → `AgentDialog::Send()`).
 5. Requête HTTP via `WebRequester`, réponse complète ajoutée par `AgentEditor::WriteAnswer()`.
-6. Échap (ou la case de fermeture) masque seulement le dialogue : la conversation et une requête en cours sont conservées. F11 y revient. « Fermer l'agent » (menu contextuel) le détruit et perd la conversation.
-7. Un seul agent par racine ; plusieurs racines = plusieurs dialogues, chacun avec son propre contexte.
+6. Échap ne fait rien (supprimé pour éviter les fermetures accidentelles). La fermeture de la fenêtre (Alt+F4, « Fermer la conversation ») détruit le dialogue ; la conversation est déjà sauvegardée automatiquement. Confirmation si l'agent travaille.
+7. Plusieurs conversations possibles par racine, chacune dans sa fenêtre, avec ses propres autorisations de session. Passage de l'une à l'autre par Alt+Tab (barre des tâches).
+8. Conversations enregistrées (`.chat.json`) : Ctrl+S / Ctrl+Shift+S / Ctrl+O dans le dialogue, Shift+F11 depuis la fenêtre principale, sauvegarde automatique après chaque échange (voir « Sauvegarde des conversations »).
 
 ## Décisions prises
 
 - **Dialogue non modal plutôt qu'onglet** (décision révisée ; l'agent était d'abord un type de document comme la console). Le document actif de la fenêtre principale reste celui que l'utilisateur regarde, ce qui servira à `get_editor_context` : on pourra le lire à chaque envoi.
-- **Un agent par racine**, racine fixe pour toute sa durée de vie : `GetWorkspaceRoot()` du document actif s'il a un nom de fichier, sinon sélecteur de répertoire. Retrouvé par `App::FindAgent()` (parcours de `wxTopLevelWindows`, comparaison insensible à la casse). Pour travailler sur deux projets, on ouvre deux agents. Meilleure isolation entre projets.
+- **Racine fixe** pour toute la durée de vie d'une conversation : `GetWorkspaceRoot()` du document actif s'il a un nom de fichier, sinon sélecteur de répertoire. (Décision révisée le 2026-11-21 : il y avait d'abord un seul agent par racine, retrouvé par `App::FindAgent()` ; supprimé, F11 crée toujours une nouvelle conversation. `App::FindAgentByFile()` sert seulement à ne pas ouvrir deux fois le même fichier de conversation.)
   - Le modèle ne voit que des chemins relatifs à la racine, avec `/` comme séparateur. En entrée on accepte aussi `\`, un `/` initial (= racine de l'espace de travail, jamais la racine du disque) et les chemins absolus situés sous la racine. Tout ce qui sort de la racine est refusé (canonicalisation, `..`).
 - **Écritures** : confirmation à **chaque** écriture pour l'instant. Prochaine grande étape : les autorisations (conception terminée, voir la section « Autorisations »).
 - **Fichier déjà ouvert** : lecture ET écriture dans le contenu de l'éditeur (`FindEditor()`, `ReplaceAndPushUndoState`), sans enregistrement automatique. Fichier fermé : lecture / écriture sur disque (`LoadFile` / `SaveFile` + editorconfig). La confirmation indique lequel des deux cas s'applique.
@@ -217,7 +218,7 @@ Conception discutée et validée le 2026-11-20.
 | chemin hors racine | dossier concerné, modifiable | `readablePaths` ou `writablePaths` de l'agent |
 | `run_lua`, `delete_file` | « Autoriser » une fois seulement (pas de session ni de toujours) | — |
 
-- Autorisations de session gardées dans `AgentSession` jusqu'à la fermeture de l'agent (`/clear` ne les oublie pas).
+- Autorisations de session gardées dans `AgentSession` jusqu'à la fermeture de la fenêtre (`/clear` ne les oublie pas). Une par fenêtre de conversation ; jamais enregistrées dans les fichiers de conversation.
 - « Toujours » écrit dans l'entrée de l'agent dans `agents.json` (retrouvée par son nom), jamais dans `defaults`. Réécriture avec `nlohmann::ordered_json` pour garder l'ordre des clés ; les commentaires sont perdus (à dire dans la doc). Si `tools` est un tableau ou absent, il est d'abord converti en objet (`["a","b"]` → `{"a":"default","b":"default"}`, absent → `{"*":"default"}`).
 - Un motif de commande créé par « session » / « toujours » suit les mêmes règles que `allowedCommands` (une commande composée demande toujours).
 
@@ -240,6 +241,36 @@ Conception discutée et validée le 2026-11-20.
 Pistes pour plus tard :
 - Découpage des commandes composées pour la liste blanche.
 - Chemins interdits même dans la racine (`.git/`, `.env`...).
+
+## Sauvegarde des conversations
+
+Conçue et implémentée le 2026-11-21. Buts : reprendre une conversation après fermeture ou plantage de NGPad, et voir le détail des messages échangés (débogage).
+
+### Format (`AgentConversation.*`)
+- Extension définie à un seul endroit : `AGENT_CONVERSATION_EXT` (`.chat.json`) dans `AgentConversation.hpp`. Le filtre des boîtes de dialogue est construit à partir d'elle (`GetConversationFileFilter`, traduction `AgentConversationFilter` avec `{0}`).
+- JSON indenté (tabulations), `ordered_json` pour garder l'ordre des clés : `format` (`ngpad-agent-conversation`), `version` (1), `title` (titre personnalisé, vide sinon), `agent` (nom), `api`, `root`, `model`, `autoSaved`, `systemPrompt` (à titre d'information, recalculé à l'ouverture), `usage` (totaux de `/tokens`, `TokenUsage::ToJson`), `messages` (historique au format de l'API, tel quel), `transcript` (journal d'affichage).
+- Écriture par `.tmp` puis renommage (`WriteConversationFile`) : un plantage ne laisse jamais de fichier tronqué. Lecture : contrôle de `format`, `version`, `messages` (`ReadConversationFile`).
+- Pendant un échange, seuls les échanges terminés sont enregistrés : `AgentSession::GetMessages(true)` coupe à `exchangeStart`, `AgentEditor::GetTranscript(pendingStart)` aux entrées commencées avant l'échange en cours.
+
+### Journal d'affichage (`AgentEditor::transcript`)
+- Chaque écriture dans la zone de texte ajoute une entrée `{kind, text, stats?}` : `prompt` (texte envoyé, y compris les commandes), `answer` (+ ligne de tokens dans `stats`), `error`, `info` (sorties de commandes), `tool`. `transcriptStarts` garde la position de début de chaque entrée (non enregistrée), pour que `TruncateFrom` (`/undo`, `/retry`) retire aussi les entrées.
+- `AgentEditor::Restore` rejoue le journal avec les mêmes fonctions d'écriture, ce qui reconstruit aussi les repères de navigation (`messageMarks`) et `exchangeStarts` (début de l'en-tête du prompt qui précède chaque `answer`, comme dans `SendPrompt`). Fichier sans `transcript` (écrit à la main) : affichage reconstruit à partir des messages (`user` et réponses sans appels d'outils seulement).
+- Non restauré, volontairement : autorisations de session, variables Lua de `run_lua`.
+
+### Fichier courant et sauvegarde automatique (`AgentDialog`)
+- `filePath` + `autoFile`. `AutoSave()` est appelé à la fin de chaque échange (succès ou échec), après chaque commande, changement de modèle, chargement, et à la fermeture. Rien n'est écrit tant qu'il n'y a pas eu d'échange réussi (historique vide et pas de fichier).
+- Premier enregistrement automatique : `MakeAutoConversationPath` → `AAAA-MM-JJ_HH-MM-SS_<espace de travail>.chat.json` (suffixe `-2`... si le nom existe) dans `GetConversationsDir`. Le drapeau `autoSaved` est enregistré dans le fichier, pour qu'un fichier automatique rouvert le reste.
+- Échec de l'enregistrement automatique : message une seule fois par conversation, puis seulement `println`.
+- Ctrl+S : fichier courant s'il a été choisi par l'utilisateur, sinon comme Ctrl+Shift+S. Ctrl+Shift+S : `wxFileDialog` avec Conversation / Markdown / Texte / Tous ; Markdown ou texte = export du contenu de la fenêtre (non rattaché). Extension ajoutée si absente (avec confirmation de remplacement si le nom complété existe). Après un enregistrement ailleurs, le fichier automatique est supprimé définitivement (`wxRemoveFile`) et l'enregistrement automatique continue dans le fichier choisi.
+- `/clear` : enregistre, puis repart sans fichier (nouvelle conversation, nouveau fichier automatique). Le titre personnalisé est gardé.
+- Répertoire (`GetConversationsDir`) : clé `conversationsDir` (par agent ou dans `defaults`). Absente : `conversations/` à côté du répertoire `config` où `agents.json` a été trouvé (APPDATA ou dossier de l'exécutable). Relative (y compris `.`) : depuis la racine de l'espace de travail. Créée au besoin.
+
+### Ouverture (`App::OpenAgentConversation`)
+- Ctrl+O dans le dialogue (refusé pendant une requête) ou Shift+F11 / Outils > Ouvrir une conversation d'agent (répertoire proposé : celui du premier agent, pour la racine du document actif).
+- Fichier déjà ouvert dans une fenêtre (`FindAgentByFile`) → cette fenêtre est affichée (deux fenêtres écraseraient le même fichier).
+- Toujours ouvert dans la racine du fichier, pas celle du document actif. Racine inexistante → proposition d'en choisir une autre. Agent introuvable par son nom → choix d'un agent.
+- Depuis Ctrl+O : même agent et même racine que le dialogue → remplace sa conversation (la conversation courante est enregistrée d'abord) ; sinon nouvelle fenêtre.
+- Le modèle enregistré est rétabli tel quel (pas de vérification auprès du serveur).
 
 ## Commandes et menus prévus (étape 2)
 
@@ -349,3 +380,8 @@ Menu contextuel (pas de barre de menus dans le dialogue) : copier, tout sélecti
     - Outil : `tools` de l'agent mis à `"outil": "allow"` ; tableau converti en objet de `default` ; sans `tools` dans l'agent : copie convertie du tableau de `defaults`, ou `{outil: allow}` seul si `defaults.tools` est un objet (fusion récursive), sinon `{"*": "default", outil: "allow"}`. Commandes et chemins : ajoutés à la liste de l'agent sans doublon, tels que saisis dans le dialogue.
     - Non fait : la config en mémoire des autres agents ouverts n'est pas mise à jour (il faut les rouvrir).
 - [x] Autorisations : les 7 points du plan sont faits (le 7, doc et exemple, au fil des étapes). Reste à tester l'ensemble dans l'interface.
+- [x] Conversations enregistrées, plusieurs conversations par racine, `/title` (2026-11-21 ; à tester dans l'interface). Voir la section « Sauvegarde des conversations ».
+  - Nouveaux fichiers `src/agent/AgentConversation.*`. `AgentSession` : `GetMessages`, `Restore`, `GetSystemPrompt` (`BuildSystemPrompt` extrait de `BuildRequestBody`), `TokenUsage::ToJson` / `FromJson`.
+  - `IDM_AGENT_SAVE_AS` (Ctrl+Shift+S), `IDM_AGENT_OPEN` (Ctrl+O), `IDM_OPEN_AGENT_CONVERSATION` (Shift+F11, menu Outils).
+  - Échap seul ne fait plus rien (`SetEscapeId(wxID_NONE)` + `OnCharHook`) ; Shift+Échap annule toujours. `wxMINIMIZE_BOX` ajouté ; `ShowAgent` restaure une fenêtre réduite (confirmations).
+  - `/title texte` (sans texte : titre par défaut), enregistré dans le fichier et proposé comme nom de fichier par Ctrl+Shift+S.

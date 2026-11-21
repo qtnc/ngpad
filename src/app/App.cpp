@@ -8,6 +8,7 @@
 #include "../agent/AgentDialog.hpp"
 #include "../agent/AgentConfig.hpp"
 #include "../agent/AgentSession.hpp"
+#include "../agent/AgentConversation.hpp"
 #include "../common/SingleChoiceDialog.hpp"
 #include "../text/FindReplaceDialog.hpp"
 #include "../text/TreeJumpListDialog.hpp"
@@ -411,6 +412,7 @@ case IDM_EXEC_COMMAND: OnExecCommandDialog(); break;
 case IDM_LUA_CONSOLE: ShowOrCreateLuaConsole(); break;
 case IDM_FILE_TREE: ShowFileTree(); break;
 case IDM_OPEN_AGENT: OnOpenAgentDialog(); break;
+case IDM_OPEN_AGENT_CONVERSATION: OnOpenAgentConversation(); break;
 default:  
 auto view = static_cast<AbstractView*>(docManager->GetCurrentView());
 auto doc = static_cast<AbstractDocument*>(docManager->GetCurrentDocument());
@@ -429,12 +431,77 @@ UpdateTitle();
 return static_cast<AbstractDocument*>( doc );
 }
 
-AgentDialog* App::FindAgent (const wxString& root) {
+AgentDialog* App::FindAgentByFile (const wxString& path) {
+wxFileName fn(path);
 for (auto win: wxTopLevelWindows) {
 auto dlg = dynamic_cast<AgentDialog*>(win);
-if (dlg && !dlg->IsBeingDeleted() && dlg->GetRoot().IsSameAs(root, false)) return dlg;
+if (dlg && !dlg->IsBeingDeleted() && !dlg->GetFilePath().empty() && fn.SameAs(wxFileName(dlg->GetFilePath()))) return dlg;
 }
 return nullptr;
+}
+
+void App::OpenAgentConversation (const wxString& path, AgentDialog* current) {
+wxWindow* parent = current? static_cast<wxWindow*>(current) : GetTopWindow();
+// Already open: two windows saving in the same file would overwrite each other
+if (auto dlg = FindAgentByFile(path)) {
+dlg->ShowAgent();
+return;
+}
+nlohmann::json data;
+wxString error;
+if (!ReadConversationFile(path, data, error)) {
+wxMessageBox(error, MSG("Error"), wxICON_ERROR | wxOK, parent);
+return;
+}
+wxString root = U(data.value("root", ""));
+if (!root.empty()) root = wxFileName::DirName(root).GetPath(wxPATH_GET_VOLUME | wxPATH_NO_SEPARATOR);
+if (root.empty() || !wxDirExists(root)) {
+if (wxYES!=wxMessageBox(U(format(GetTranslation("AgentConversationRootMissing"), U(root))), MSG("ChooseAgentTitle"), wxYES_NO | wxICON_QUESTION, parent)) return;
+wxDirDialog dlg(parent, MSG("ChooseAgentRootDir"), wxGetCwd(), wxDD_DEFAULT_STYLE | wxDD_DIR_MUST_EXIST);
+if (wxID_OK!=dlg.ShowModal()) return;
+root = dlg.GetPath();
+}
+std::vector<AgentConfig> configs;
+if (!AgentConfig::LoadAll(configs, error)) {
+wxMessageBox(error, MSG("Error"), wxICON_ERROR | wxOK, parent);
+return;
+}
+std::string agentName = data.value("agent", "");
+int selection = -1;
+for (size_t i=0; i<configs.size(); i++) if (configs[i].name==agentName) selection = i;
+if (selection<0) {
+// The agent was renamed or removed from the configuration
+wxArrayString names;
+for (auto& c: configs) names.push_back(U(c.name));
+SingleChoiceDialog dlg(parent, MSG("ChooseAgentTitle"), U(format(GetTranslation("AgentConversationAgentMissing"), agentName)), names);
+if (wxID_OK!=dlg.ShowModal()) return;
+selection = dlg.GetSelection();
+if (selection<0) return;
+}
+auto& config = configs[selection];
+AgentDialog* dlg = nullptr;
+if (current && current->GetRoot().IsSameAs(root, false) && current->GetSession()->GetConfig().name==config.name) dlg = current;
+else dlg = CreateAgent(config, root);
+if (dlg->IsBusy()) {
+wxBell();
+return;
+}
+dlg->LoadConversation(data, path);
+dlg->ShowAgent();
+}
+
+void App::OnOpenAgentConversation () {
+// Directory of the first agent, for the workspace of the active document if it has one
+wxString dir, root;
+auto doc = dynamic_cast<TextDocument*>(docManager->GetCurrentDocument());
+if (doc && wxFileExists(doc->GetFilename())) root = doc->GetWorkspaceRoot();
+std::vector<AgentConfig> configs;
+wxString error;
+if (AgentConfig::LoadAll(configs, error)) dir = GetConversationsDir(configs[0], root);
+if (!wxDirExists(dir)) dir = wxEmptyString;
+wxFileDialog fd(GetTopWindow(), MSG("AgentOpenConversation"), dir, wxEmptyString, GetConversationFileFilter(), wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+if (wxID_OK!=fd.ShowModal()) return;
+OpenAgentConversation(fd.GetPath());
 }
 
 AgentDialog* App::CreateAgent (const AgentConfig& config, const wxString& root) {
@@ -448,11 +515,7 @@ return dlg;
 void App::OnOpenAgentDialog () {
 wxString root = ChooseAgentRoot();
 if (root.empty()) return;
-// Only one agent per root: it keeps its conversation until it is explicitly closed
-if (auto dlg = FindAgent(root)) {
-dlg->ShowAgent();
-return;
-}
+// Always a new conversation, even if other ones are open for the same root
 std::vector<AgentConfig> configs;
 wxString error;
 if (!AgentConfig::LoadAll(configs, error)) {
@@ -810,6 +873,7 @@ tools->Append(IDM_MULTIREPLACE, MSG("Multireplace") + "...\tCtrl+Shift+H");
 tools->Append(IDM_FILE_TREE, MSG("WorkspaceFileTree") + "...\tCtrl+P");
 tools->Append(IDM_EXEC_COMMAND, MSG("ExecCommand") + "...\tF10");
 tools->Append(IDM_OPEN_AGENT, MSG("OpenAgent") + "...\tF11");
+tools->Append(IDM_OPEN_AGENT_CONVERSATION, MSG("OpenAgentConversation") + "...\tShift+F11");
 tools->Append(IDM_LUA_CONSOLE, MSG("LuaConsoleMI") + "\tF12");
 tools->SetClientObject(new StringClientData("tools"));
 menubar->Append(tools, MSG("ToolsMenu"));

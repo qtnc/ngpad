@@ -16,6 +16,8 @@ long long lastInput = 0; // Input tokens of the last request, i.e. the current s
 int requests = 0;
 bool hasUsage = false, hasCached = false;
 void Add (const nlohmann::json& usage);
+nlohmann::json ToJson () const;
+static TokenUsage FromJson (const nlohmann::json& j);
 };
 
 class AgentSession {
@@ -45,6 +47,7 @@ size_t exchangeStart = 0;
 int toolIterations = 0;
 TokenUsage usage, totalUsage;
 
+std::string BuildSystemPrompt (bool hasTools);
 nlohmann::json BuildRequestBody ();
 bool StartRequest (const std::string& path, const std::string& body, const RawCallback& callback);
 void OnRequestDone (const wxWebRequestEvent& e, const RawCallback& callback);
@@ -68,6 +71,11 @@ const TokenUsage& GetTotalUsage () const { return totalUsage; }
 void SetConfirmCallback (const ToolContext::ConfirmCallback& callback) { confirmCallback = callback; }
 
 void Clear ();
+// History in the API format; while an exchange is in progress, only the completed exchanges if completedOnly
+nlohmann::json GetMessages (bool completedOnly = true) const;
+std::string GetSystemPrompt ();
+// Replace the conversation by a saved one. Lua globals and session grants aren't restored.
+bool Restore (const nlohmann::json& messages, const TokenUsage& total);
 bool UndoLastExchange (wxString* prompt = nullptr);
 bool Send (const wxString& prompt, const ResponseCallback& callback, const ToolCallCallback& toolCallback = nullptr);
 bool ListModels (const ModelListCallback& callback, bool forceRefresh = false);

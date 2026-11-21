@@ -66,6 +66,23 @@ cached += GetCount(u, "prompt_cache_hit_tokens", &found);
 if (found) hasCached = true;
 }
 
+json TokenUsage::ToJson () const {
+return { {"input", input}, {"output", output}, {"cached", cached}, {"lastInput", lastInput}, {"requests", requests}, {"hasUsage", hasUsage}, {"hasCached", hasCached} };
+}
+
+TokenUsage TokenUsage::FromJson (const json& j) {
+TokenUsage u;
+if (!j.is_object()) return u;
+u.input = GetCount(j, "input");
+u.output = GetCount(j, "output");
+u.cached = GetCount(j, "cached");
+u.lastInput = GetCount(j, "lastInput");
+u.requests = GetCount(j, "requests");
+u.hasUsage = j.value("hasUsage", false);
+u.hasCached = j.value("hasCached", false);
+return u;
+}
+
 AgentSession::AgentSession (const AgentConfig& cfg, const wxString& root0):
 config(cfg), root(root0), model(cfg.model), messages(json::array()), alive(std::make_shared<bool>(true)),
 cancelled(std::make_shared<std::atomic<bool>>(false)), luaEnv(std::make_shared<LuaEnvironment>()), grants(std::make_shared<SessionGrants>())
@@ -92,6 +109,20 @@ messages = json::array();
 // Globals defined by Lua scripts are forgotten
 luaEnv = std::make_shared<LuaEnvironment>();
 totalUsage = TokenUsage();
+}
+
+json AgentSession::GetMessages (bool completedOnly) const {
+if (!completedOnly || !IsBusy() || exchangeStart>=messages.size()) return messages;
+return json(messages.begin(), messages.begin() +exchangeStart);
+}
+
+bool AgentSession::Restore (const json& saved, const TokenUsage& total) {
+if (IsBusy() || !saved.is_array()) return false;
+messages = saved;
+luaEnv = std::make_shared<LuaEnvironment>();
+totalUsage = total;
+usage = TokenUsage();
+return true;
 }
 
 bool AgentSession::UndoLastExchange (wxString* prompt) {
@@ -121,8 +152,25 @@ json body = json::object();
 for (auto& [key, value]: config.extraBody.items()) body[key] = value;
 if (!model.empty()) body["model"] = model;
 json tools = AgentTools::GetDefinitions(config);
+std::string systemPrompt = BuildSystemPrompt(!tools.empty());
+if (!tools.empty()) body["tools"] = tools;
+json msgs = json::array();
+if (!systemPrompt.empty()) msgs.push_back({ {"role", "system"}, {"content", systemPrompt} });
+for (auto& m: messages) msgs.push_back(m);
+body["messages"] = msgs;
+if (config.temperature>=0) body["temperature"] = config.temperature;
+if (config.maxTokens>0) body["max_tokens"] = config.maxTokens;
+body["stream"] = false;
+return body;
+}
+
+std::string AgentSession::GetSystemPrompt () {
+return BuildSystemPrompt(!AgentTools::GetDefinitions(config).empty());
+}
+
+std::string AgentSession::BuildSystemPrompt (bool hasTools) {
 std::string systemPrompt = config.systemPrompt;
-if (!tools.empty()) {
+if (hasTools) {
 if (!systemPrompt.empty()) systemPrompt += "\n\n";
 systemPrompt += format("The workspace root is the folder '{}'. All file paths are relative to it and use '/' as separator.", U(GetWorkspaceName(root)));
 // Places outside the workspace the agent may use without asking, resolved as absolute paths
@@ -133,16 +181,8 @@ for (auto& p: paths.readablePaths) outside += (outside.empty()? "" : ", ") + U(p
 for (auto& p: paths.writablePaths) outside += (outside.empty()? "" : ", ") + U(p.path);
 if (!outside.empty()) systemPrompt += " Outside of the workspace, you can also access these files and directories, with absolute paths: " + outside + ".";
 if (AgentTools::IsEnabled("get_editor_context", config)) systemPrompt += " The user works in a text editor: when they refer to the current file, the selection, the cursor or 'here', call get_editor_context.";
-body["tools"] = tools;
 }
-json msgs = json::array();
-if (!systemPrompt.empty()) msgs.push_back({ {"role", "system"}, {"content", systemPrompt} });
-for (auto& m: messages) msgs.push_back(m);
-body["messages"] = msgs;
-if (config.temperature>=0) body["temperature"] = config.temperature;
-if (config.maxTokens>0) body["max_tokens"] = config.maxTokens;
-body["stream"] = false;
-return body;
+return systemPrompt;
 }
 
 bool AgentSession::StartRequest (const std::string& path, const std::string& body, const RawCallback& callback) {

@@ -43,6 +43,7 @@ c.temperature = j.value("temperature", -1.0);
 c.maxTokens = j.value("maxTokens", -1);
 c.timeout = j.value("timeout", 600);
 c.shell = j.value("shell", DEFAULT_AGENT_SHELL);
+c.conversationsDir = j.value("conversationsDir", "");
 if (j.contains("headers") && j["headers"].is_object()) c.headers = j["headers"];
 else c.headers = json::object();
 if (j.contains("extraBody") && j["extraBody"].is_object()) c.extraBody = j["extraBody"];

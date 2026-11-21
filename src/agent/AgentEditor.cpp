@@ -51,6 +51,7 @@ return;
 }
 wxString prompt = GetRange(ip, last);
 WriteText("\n\n");
+Record("prompt", ip, prompt);
 SetInputInsertionPoint(GetInsertionPoint());
 dialog->Send(prompt);
  }
@@ -63,7 +64,56 @@ WriteText("\n");
 messageMarks.push_back({ headerStart, GetLastPosition() });
 }
 
+void AgentEditor::Record (const char* kind, long start, const wxString& text, const wxString& stats) {
+nlohmann::json entry = { {"kind", kind}, {"text", U(text)} };
+if (!stats.empty()) entry["stats"] = U(stats);
+transcript.push_back(entry);
+transcriptStarts.push_back(start);
+}
+
+nlohmann::json AgentEditor::GetTranscript (long before) const {
+if (before<0) return transcript;
+nlohmann::json t = nlohmann::json::array();
+for (size_t i=0; i<transcript.size() && transcriptStarts[i]<before; i++) t.push_back(transcript[i]);
+return t;
+}
+
+void AgentEditor::Restore (const nlohmann::json& saved, std::vector<long>& exchangeStarts) {
+Reset();
+exchangeStarts.clear();
+if (!saved.is_array()) return;
+long promptStart = 0;
+for (auto& entry: saved) {
+if (!entry.is_object()) continue;
+std::string kind = entry.value("kind", "");
+wxString text = U(entry.value("text", "")), stats = U(entry.value("stats", ""));
+if (kind=="prompt") {
+// As typed by the user and sent by OnShiftEnter
+promptStart = GetCurrentMessageStart();
+SetInsertionPoint(GetLastPosition());
+long start = GetLastPosition();
+WriteText(text);
+WriteText("\n\n");
+SetInputInsertionPoint(GetLastPosition());
+Record("prompt", start, text);
+}
+else if (kind=="answer") {
+// Only successful exchanges have an answer; their start is the header of the prompt, as in AgentDialog::SendPrompt
+exchangeStarts.push_back(promptStart);
+WriteAnswer(text, stats);
+}
+else if (kind=="error") WriteError(text);
+else if (kind=="info") WriteInfo(text);
+else if (kind=="tool") WriteToolCall(text);
+}
+// A journal ending with a prompt without answer (saved by hand or truncated): the user can type again after it
+if (!transcript.empty() && transcript.back().value("kind", "")=="prompt") WritePromptInvite();
+SetInsertionPoint(GetLastPosition());
+ShowPosition(GetLastPosition());
+}
+
 void AgentEditor::WriteAnswer (const wxString& a, const wxString& stats) {
+Record("answer", GetLastPosition(), a, stats);
 WriteHeader(MSG("AIResponse"));
 WriteText(a);
 WriteText("\n\n");
@@ -75,6 +125,7 @@ WritePromptInvite();
 }
 
 void AgentEditor::WriteError (const wxString& e) {
+Record("error", GetLastPosition(), e);
 WriteHeader(MSG("AIError"));
 WriteText(e);
 WriteText("\n\n");
@@ -82,6 +133,7 @@ WritePromptInvite();
 }
 
 void AgentEditor::WriteInfo (const wxString& info) {
+Record("info", GetLastPosition(), info);
 SetInsertionPoint(GetLastPosition());
 WriteText(info);
 WriteText("\n\n");
@@ -89,6 +141,7 @@ WritePromptInvite();
 }
 
 void AgentEditor::WriteToolCall (const wxString& text) {
+Record("tool", GetLastPosition(), text);
 SetInsertionPoint(GetLastPosition());
 WriteText(text);
 WriteText("\n");
@@ -102,6 +155,8 @@ SetInputInsertionPoint(GetLastPosition());
 void AgentEditor::Reset () {
 Clear();
 messageMarks.clear();
+transcript = nlohmann::json::array();
+transcriptStarts.clear();
 WritePromptInvite();
 }
 
@@ -112,6 +167,10 @@ return messageMarks.empty()? 0 : messageMarks.back().headerStart;
 void AgentEditor::TruncateFrom (long pos) {
 Remove(pos, GetLastPosition());
 while (!messageMarks.empty() && messageMarks.back().headerStart>=pos) messageMarks.pop_back();
+while (!transcriptStarts.empty() && transcriptStarts.back()>=pos) {
+transcriptStarts.pop_back();
+transcript.erase(transcript.size() -1);
+}
 WritePromptInvite();
 }
 

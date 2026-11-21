@@ -59,11 +59,12 @@ Execute a quick jump command. This is equivalent to Ctrl+J
 **Returns:**
 * boolean: true if the quick jump command succeeded
 
-### App.sayText (text)
+### App.sayText (text, interrupt=false)
 send some text to the live region, to be spoken by screen readers
 
 **Parameters:**
 * text: string: text to be spoken by screen readers
+* interrupt: boolean: whether the current speech must be interrupted
 
 ### App.setClipboardText (text)
 Set the text of the clipboard

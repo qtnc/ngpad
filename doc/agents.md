@@ -12,20 +12,20 @@ Press F11, or use the AI agent item of the Tools menu.
 The workspace root is the workspace root of the active document, as determined by `workspace_root_indicators` in config.ini. If the active document isn't saved in a file, a dialog box asks you to choose a directory.
 The workspace root of an agent can't be changed. Outside of it, the agent must ask you before accessing any file, unless the file is listed in `readablePaths` or `writablePaths` (see Paths below).
 
-There is a single agent per workspace root. If an agent already exists for the root, its window is shown again with its conversation.
-To work on several projects at the same time, open an agent for each of them. Each one has its own window and its own conversation.
+Each time you press F11, a new conversation is opened in a new window, even if other conversations are already open for the same workspace. Each window has its own conversation, and can use another agent. To go from one window to another, use Alt+Tab: each conversation window appears in the taskbar.
 
 If several agents are configured, a dialog box asks you which one to use.
+
+Shift+F11, or the Open an agent conversation item of the Tools menu, opens a saved conversation (see Saving conversations below).
 
 ## Conversation window
 
 Type your message at the end of the conversation and press Shift+Enter to send it.
-While the agent is working, you can't send another message. The beginning and the end of the work are announced by your screen reader, even if the window is hidden.
+While the agent is working, you can't send another message. The beginning and the end of the work are announced by your screen reader, even if you are in another window.
 
 Shortcut | Action
 -----|-----
 Shift+Enter | Send the message
-Escape | Hide the window. The conversation and a pending request are kept; press F11 to come back
 Shift+Escape | Cancel the pending request
 Ctrl+Up / Ctrl+Down | Go to the previous / next message
 Ctrl+Shift+Up / Ctrl+Shift+Down | Select up to the beginning of the previous message / the end of the current message
@@ -33,8 +33,10 @@ Ctrl+Enter | [Quick jump](quickJump.html) using the word under the cursor, for e
 Ctrl+M | Choose the model
 Ctrl+Shift+L | Clear the conversation
 Ctrl+S | Save the conversation
+Ctrl+Shift+S | Save the conversation under another name, or export it as Markdown or text
+Ctrl+O | Open a saved conversation
 
-The context menu also allows to close the agent. Contrary to hiding the window, closing the agent definitively deletes the conversation.
+Escape does nothing in the conversation window, to avoid closing it by accident. Closing the window (Alt+F4, or Close the conversation in the context menu) closes the conversation; since it is saved automatically, you can open it again later. If the agent is working, you are asked to confirm first: the exchange in progress is then lost.
 
 The following commands can be typed instead of a message:
 
@@ -45,13 +47,30 @@ Command | Effect
 `/model name` | Use another model
 `/undo` | Remove the last exchange (your message and the answer) from the conversation
 `/retry` | Remove the last exchange and send the same message again
-`/save` | Save the conversation
+`/save` | Save the conversation, as Ctrl+S
+`/title text` | Change the title of the window. Without text, the default title (name of the agent and workspace) is used again. The title is saved with the conversation
 `/tokens` | Show the number of tokens used since the beginning of the conversation, and the size of the context at the last request
 `/help` | Show the list of commands and shortcuts
 
 Answers are displayed once complete, as written by the model, usually in markdown. Each tool call made by the agent is shown on a single line, with its name, its parameters, and the first line of its result.
 
 When the server reports it, the number of tokens used is shown after the answer: input tokens (and, if the server indicates it, how many of them were read from the prompt cache) and output tokens. When the agent has called tools, an answer requires several requests: the counts are then summed over all of them. Since the whole conversation is sent again with each request, input tokens grow with the length of the conversation. The `/tokens` command shows the totals since the beginning of the conversation, including requests of exchanges which failed, were cancelled or removed with `/undo`; `/clear` resets them.
+
+## Saving conversations
+
+Conversations are saved in files with the extension `.chat.json`, which can be opened again to continue the conversation.
+
+- Automatic save: after each exchange or command, the conversation is saved. Until you save it yourself, it is saved in the conversations directory (see `conversationsDir` in the Configuration section), in a file named after the date, the time and the workspace, for example `2026-11-21_14-32-05_wxNotepad.chat.json`. Nothing is saved before the first successful exchange.
+- Ctrl+S: the first time, asks where to save the conversation; then saves it again in the same file without asking. The automatic file is then deleted, and the automatic save continues in the file you chose.
+- Ctrl+Shift+S: asks again where to save the conversation. You can also choose Markdown or text: the content of the window is then only exported, and can't be opened again.
+- `/clear` starts a new conversation, which will be saved in a new file. The previous one stays in its file.
+
+A saved conversation can be opened with Ctrl+O in a conversation window, or with Shift+F11 from the main window. It always opens with its own workspace root, whatever the active document. With Ctrl+O, it replaces the conversation of the window if it uses the same agent and the same workspace root, the current conversation staying in its file; otherwise, it opens in a new window. If the conversation is already open in a window, this window is shown instead. If the workspace root doesn't exist anymore, or the agent isn't in the configuration anymore, you are asked to choose another one.
+
+The window is restored as it was: messages, answers, tool calls, errors, outputs of commands, title, model and the totals of `/tokens`. `/undo` and `/retry` work as before. However, permissions given with Allow for this session aren't restored, nor the global variables defined by `run_lua`.
+
+The file contains, in JSON, the messages exactly as they are sent to the server (key `messages`, with the tool calls and their results), the system prompt for information (it is computed again from the configuration when the conversation is opened), and what is displayed in the window (key `transcript`). Be careful: it therefore contains everything the agent has read, including the content of files.
+While the agent is working, only the completed exchanges are saved.
 
 ## Tools
 
@@ -118,7 +137,7 @@ By default, each modification made by `edit_file`, `write_file`, `replace_in_fil
 For `replace_in_files`, a single confirmation shows the list of modified files with the number of replacements in each of them, and a few examples. For `run_command` and `run_lua`, the command or the code is shown in a text field, which has the focus so that you can read it before answering.
 
 - Allow: the modification is made, and the agent continues.
-- Allow for this session: the same, and the agent won't ask again until it is closed (clearing the conversation doesn't change it). What is allowed depends on the confirmation:
+- Allow for this session: the same, and the agent won't ask again until its window is closed (clearing the conversation doesn't change it). Each conversation window has its own permissions. What is allowed depends on the confirmation:
   - for a modification in the workspace, every use of the same tool, for example all modifications made by `edit_file`;
   - for a command, all commands starting with the text given in the field below the command, by default the program and its subcommand, for example `git diff`. You can modify it before answering, with the same rules as `allowedCommands` (see the Configuration section): for example, a command containing `&` or `>` still always asks;
   - for a file outside of the workspace, the file or directory given in the field, by default the directory which contains the file. You can modify it before answering, with the same rules as `readablePaths` and `writablePaths`. When the agent wanted to read, reading is allowed; when it wanted to modify, reading and modifying are allowed.
@@ -128,7 +147,7 @@ For `replace_in_files`, a single confirmation shows the list of modified files w
 
 Lua scripts and deletions can only be allowed once: each of them is confirmed.
 For `delete_file`, `run_command`, `run_lua`, and modifications outside of the workspace, the default button is Deny.
-If the agent window is hidden when a confirmation is needed, it is shown again first.
+If the agent window is minimized when a confirmation is needed, it is restored first.
 
 ## Configuration
 
@@ -173,6 +192,7 @@ shell | string | cmd /s /c "{command}" | Command line used by `run_command`. `{c
 maxToolIterations | integer | 15 | Maximum number of successive tool call rounds for a single message. When exceeded, the agent stops with an error
 limits | object | | Limits on the size of tool results (see below)
 extraBody | object | | Additional parameters added as is to the body of each request, for parameters specific to a server or a model
+conversationsDir | string | | Directory where conversations are saved automatically, also proposed when saving or opening a conversation. By default, the `conversations` directory next to the `config` directory containing `agents.json`: in the user configuration directory, or in the directory of the application. A relative path is relative to the workspace root: `.` is the workspace root itself, `.agents` its subdirectory `.agents`. Missing directories are created
 
 ### Tools
 

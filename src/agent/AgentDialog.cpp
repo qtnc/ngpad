@@ -1,11 +1,13 @@
 #include "AgentDialog.hpp"
 #include "AgentEditor.hpp"
 #include "AgentSession.hpp"
+#include "AgentConversation.hpp"
 #include "../app/App.hpp"
 #include "../common/println.hpp"
 #include "../common/SingleChoiceDialog.hpp"
 #include <wx/filedlg.h>
 #include <wx/file.h>
+#include <wx/filename.h>
 #include<algorithm>
 
 // Confirmation of a tool call. A long text to check (command, Lua script, list of replacements...) is shown in a read-only field
@@ -71,7 +73,8 @@ default: return ToolConfirmation::Stop;
 }}
 
 AgentDialog::AgentDialog (wxWindow* parent, const wxString& title, const AgentConfig& config, const wxString& root):
-wxDialog(parent, wxID_ANY, title, wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMAXIMIZE_BOX | wxDIALOG_NO_PARENT)
+wxDialog(parent, wxID_ANY, title, wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMINIMIZE_BOX | wxMAXIMIZE_BOX | wxDIALOG_NO_PARENT),
+defaultTitle(title)
 {
 session = std::make_unique<AgentSession>(config, root);
 session->SetConfirmCallback([this](ConfirmRequest& request){
@@ -90,10 +93,14 @@ CentreOnScreen();
 std::vector<wxAcceleratorEntry> accelerators = {
 { wxACCEL_CTRL | wxACCEL_SHIFT, 'L', IDM_AGENT_CLEAR },
 { wxACCEL_CTRL, 'M', IDM_AGENT_MODEL },
-{ wxACCEL_CTRL, 'S', IDM_AGENT_SAVE }
+{ wxACCEL_CTRL, 'S', IDM_AGENT_SAVE },
+{ wxACCEL_CTRL | wxACCEL_SHIFT, 'S', IDM_AGENT_SAVE_AS },
+{ wxACCEL_CTRL, 'O', IDM_AGENT_OPEN }
 };
 wxAcceleratorTable acctable(accelerators.size(), &accelerators[0]);
 SetAcceleratorTable(acctable);
+// Escape does nothing, to avoid closing the conversation by accident
+SetEscapeId(wxID_NONE);
 
 Bind(wxEVT_CHAR_HOOK, &AgentDialog::OnCharHook, this);
 Bind(wxEVT_CLOSE_WINDOW, &AgentDialog::OnClose, this);
@@ -109,6 +116,7 @@ return session->GetRoot();
 }
 
 void AgentDialog::ShowAgent () {
+if (IsIconized()) Iconize(false);
 Show();
 Raise();
 editor->SetFocus();
@@ -179,12 +187,14 @@ void AgentDialog::SendPrompt (const wxString& prompt) {
 auto& app = wxGetApp();
 wxString name = U(session->GetConfig().name);
 long exchangeStart = editor->GetCurrentMessageStart();
+pendingStart = exchangeStart;
 auto onToolCall = [this](const std::string& toolName, const nlohmann::json& args, const ToolResult& result){
 editor->WriteToolCall(FormatToolCall(toolName, args, result));
 wxGetApp().SayText(U(format(GetTranslation("AgentToolCallSay"), toolName)));
 };
 bool sent = session->Send(prompt, [this, name, exchangeStart](bool success, const wxString& text){
 auto& app = wxGetApp();
+pendingStart = -1;
 if (success) {
 exchangeStarts.push_back(exchangeStart);
 editor->WriteAnswer(text, FormatTokenUsage(session->GetLastUsage()));
@@ -193,10 +203,14 @@ app.SayText(U(format(GetTranslation("AgentAnswerReceived"), U(name))));
 else {
 editor->WriteError(text);
 app.SayText(name + ": " + text);
-}}, onToolCall);
-if (sent) app.SayText(MSG("AgentThinking"));
-else editor->WriteError(MSG("AgentSendFailed"));
 }
+AutoSave();
+}, onToolCall);
+if (sent) app.SayText(MSG("AgentThinking"));
+else {
+pendingStart = -1;
+editor->WriteError(MSG("AgentSendFailed"));
+}}
 
 void AgentDialog::ExecuteCommand (const wxString& name, const wxString& arg) {
 auto& app = wxGetApp();
@@ -211,6 +225,12 @@ else ChangeModel(arg);
 else if (name=="undo") UndoLastExchange(false);
 else if (name=="retry") UndoLastExchange(true);
 else if (name=="save") SaveConversation();
+else if (name=="title") {
+SetCustomTitle(arg);
+wxString msg = U(format(GetTranslation("AgentTitleChanged"), U(GetTitle())));
+editor->WriteInfo(msg);
+app.SayText(msg);
+}
 else if (name=="tokens") {
 wxString text = FormatTotalTokenUsage(session->GetTotalUsage());
 editor->WriteInfo(text);
@@ -221,7 +241,16 @@ else {
 wxString msg = U(format(GetTranslation("AgentUnknownCommand"), U(name)));
 editor->WriteInfo(msg);
 app.SayText(msg);
-}}
+}
+// The output of the command is part of the conversation; after /clear, nothing is saved until the next successful exchange
+AutoSave();
+}
+
+void AgentDialog::SetCustomTitle (const wxString& title) {
+customTitle = title;
+customTitle.Trim(true).Trim(false);
+SetTitle(customTitle.empty()? defaultTitle : customTitle);
+}
 
 void AgentDialog::ShowModelList () {
 bool started = session->ListModels([this](bool success, const std::vector<std::string>& models, const wxString& error){
@@ -244,6 +273,7 @@ text = MSG("AgentModelOK");
 else text = MSG("AgentModelNotFound") + "\n" + FormatModelList(models, session->GetModel());
 editor->WriteInfo(text);
 wxGetApp().SayText(text.BeforeFirst('\n'));
+AutoSave();
 });
 if (!started) editor->WriteInfo(MSG("AgentSendFailed"));
 }
@@ -275,6 +305,7 @@ if (i<0) return;
 session->SetModel(models[i]);
 wxGetApp().SayText(U(format(GetTranslation("AgentModelChanged"), models[i])));
 editor->SetFocus();
+AutoSave();
 });
 }
 
@@ -295,17 +326,135 @@ editor->OnShiftEnter();
 else wxGetApp().SayText(MSG("AgentUndone"));
 }
 
-void AgentDialog::SaveConversation () {
-wxString name = U(session->GetConfig().name) + ".md";
-wxFileDialog fd(this, MSG("AgentSave"), GetRoot(), name, MSG("AgentSaveFilter"), wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
-if (wxID_OK!=fd.ShowModal()) return;
+nlohmann::ordered_json AgentDialog::BuildConversationData () {
+using ordered_json = nlohmann::ordered_json;
+auto& config = session->GetConfig();
+// While an exchange is in progress, only the completed exchanges are saved
+ordered_json data = ordered_json::object();
+data["format"] = AGENT_CONVERSATION_FORMAT;
+data["version"] = AGENT_CONVERSATION_VERSION;
+data["title"] = U(customTitle);
+data["agent"] = config.name;
+data["api"] = config.api;
+data["root"] = U(GetRoot());
+data["model"] = session->GetModel();
+data["autoSaved"] = autoFile;
+// For information only: recomputed from the configuration when the conversation is opened again
+data["systemPrompt"] = session->GetSystemPrompt();
+data["usage"] = ordered_json(session->GetTotalUsage().ToJson());
+data["messages"] = ordered_json(session->GetMessages(true));
+data["transcript"] = ordered_json(editor->GetTranscript(pendingStart));
+return data;
+}
+
+bool AgentDialog::WriteConversation (const wxString& path, bool automatic, wxString& error) {
+bool previous = autoFile;
+autoFile = automatic;
+auto data = BuildConversationData();
+autoFile = previous;
+return WriteConversationFile(path, data, error);
+}
+
+bool AgentDialog::ExportText (const wxString& path) {
 std::string text = U(editor->GetValue());
-wxFile file(fd.GetPath(), wxFile::write);
-if (!file.IsOpened() || !file.Write(text.data(), text.size())) {
-wxMessageBox(MSG("AgentSaveError"), MSG("Error"), wxICON_ERROR | wxOK, this);
+wxFile file(path, wxFile::write);
+return file.IsOpened() && file.Write(text.data(), text.size());
+}
+
+void AgentDialog::AutoSave () {
+if (!session) return;
+if (filePath.empty()) {
+// Nothing is saved before the first successful exchange
+if (session->GetMessages(true).empty()) return;
+filePath = MakeAutoConversationPath(GetConversationsDir(session->GetConfig(), GetRoot()), GetRoot());
+autoFile = true;
+}
+wxString error;
+if (WriteConversation(filePath, autoFile, error)) return;
+// Shown only once, so that a directory which can't be written doesn't make the agent unusable
+println("Automatic save failed: {}", U(error));
+if (autoSaveErrorShown) return;
+autoSaveErrorShown = true;
+wxMessageBox(error, MSG("Error"), wxICON_ERROR | wxOK, this);
+}
+
+void AgentDialog::SaveConversation () {
+if (filePath.empty() || autoFile) {
+SaveConversationAs();
+return;
+}
+wxString error;
+if (!WriteConversation(filePath, false, error)) {
+wxMessageBox(error, MSG("Error"), wxICON_ERROR | wxOK, this);
 return;
 }
 wxGetApp().SayText(MSG("AgentSaved"));
+}
+
+void AgentDialog::SaveConversationAs () {
+wxString dir = !filePath.empty() && !autoFile? wxFileName(filePath).GetPath() : GetConversationsDir(session->GetConfig(), GetRoot());
+wxString name = customTitle.empty()? wxString(U(session->GetConfig().name)) : customTitle;
+for (auto c: wxString("\\/:*?\"<>|")) name.Replace(wxString(c), "_");
+wxFileDialog fd(this, MSG("AgentSave"), dir, name + AGENT_CONVERSATION_EXT, GetConversationFileFilter() + "|" + MSG("AgentSaveFilter"), wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+if (wxID_OK!=fd.ShowModal()) return;
+wxString path = fd.GetPath();
+// Markdown or text: only an export of what is displayed, which can't be opened again
+if (fd.GetFilterIndex()!=0 && !HasConversationExtension(path)) {
+if (!ExportText(path)) wxMessageBox(MSG("AgentSaveError"), MSG("Error"), wxICON_ERROR | wxOK, this);
+else wxGetApp().SayText(MSG("AgentSaved"));
+return;
+}
+wxString fullPath = AddConversationExtension(path);
+if (fullPath!=path && wxFileExists(fullPath) && wxYES!=wxMessageBox(U(format(GetTranslation("AgentFileExists"), U(fullPath))), MSG("AgentSave"), wxYES_NO | wxICON_QUESTION, this)) return;
+wxString error;
+if (!WriteConversation(fullPath, false, error)) {
+wxMessageBox(error, MSG("Error"), wxICON_ERROR | wxOK, this);
+return;
+}
+// The automatic file is useless once the conversation is saved elsewhere
+if (autoFile && !filePath.empty() && !wxFileName(filePath).SameAs(wxFileName(fullPath))) wxRemoveFile(filePath);
+filePath = fullPath;
+autoFile = false;
+wxGetApp().SayText(MSG("AgentSaved"));
+}
+
+void AgentDialog::OpenConversation () {
+wxString dir = !filePath.empty() && !autoFile? wxFileName(filePath).GetPath() : GetConversationsDir(session->GetConfig(), GetRoot());
+if (!wxDirExists(dir)) dir = wxEmptyString;
+wxFileDialog fd(this, MSG("AgentOpenConversation"), dir, wxEmptyString, GetConversationFileFilter(), wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+if (wxID_OK!=fd.ShowModal()) return;
+wxGetApp().OpenAgentConversation(fd.GetPath(), this);
+}
+
+static nlohmann::json BuildTranscriptFromMessages (const nlohmann::json& messages) {
+// For a file without journal, for example written by hand: only messages and answers
+nlohmann::json t = nlohmann::json::array();
+for (auto& m: messages) {
+std::string role = m.value("role", "");
+std::string content = m.contains("content") && m["content"].is_string()? m["content"].get<std::string>() : "";
+bool hasToolCalls = m.contains("tool_calls") && m["tool_calls"].is_array() && !m["tool_calls"].empty();
+if (role=="user") t.push_back({ {"kind", "prompt"}, {"text", content} });
+else if (role=="assistant" && !hasToolCalls && !content.empty()) t.push_back({ {"kind", "answer"}, {"text", content} });
+}
+return t;
+}
+
+bool AgentDialog::LoadConversation (const nlohmann::json& data, const wxString& path) {
+if (!session || IsBusy()) return false;
+// The current conversation stays in its file
+AutoSave();
+if (!session->Restore(data["messages"], TokenUsage::FromJson(data.value("usage", nlohmann::json::object())))) return false;
+std::string model = data.contains("model") && data["model"].is_string()? data["model"].get<std::string>() : "";
+if (!model.empty()) session->SetModel(model);
+auto transcript = data.contains("transcript") && data["transcript"].is_array()? data["transcript"] : BuildTranscriptFromMessages(data["messages"]);
+editor->Restore(transcript, exchangeStarts);
+pendingStart = -1;
+SetCustomTitle(U(data.contains("title") && data["title"].is_string()? data["title"].get<std::string>() : ""));
+filePath = path;
+autoFile = data.value("autoSaved", false);
+autoSaveErrorShown = false;
+wxGetApp().SayText(MSG("AgentConversationOpened"));
+return true;
 }
 
 void AgentDialog::CancelRequest () {
@@ -313,30 +462,36 @@ if (!session || !session->Cancel()) wxBell();
 }
 
 void AgentDialog::CloseAgent () {
-// The conversation is lost; a pending request is abandoned by the session destructor
-Destroy();
+Close();
 }
 
 void AgentDialog::ClearAgent () {
+// A new conversation, saved in a new file; the previous one stays in its file
+if (session && editor) AutoSave();
 if (session) session->Clear();
 exchangeStarts.clear();
+pendingStart = -1;
+filePath.clear();
+autoFile = false;
+autoSaveErrorShown = false;
 if (editor) editor->Reset();
 }
 
 void AgentDialog::OnCharHook (wxKeyEvent& e) {
 if (e.GetKeyCode()!=WXK_ESCAPE) e.Skip();
 else if (e.GetModifiers()==wxMOD_SHIFT) CancelRequest();
-// Escape only hides the dialog: the conversation and a pending request are kept
-else if (e.GetModifiers()==wxMOD_NONE) Hide();
-else e.Skip();
+// Escape alone does nothing, to avoid closing the conversation by accident
+else if (e.GetModifiers()!=wxMOD_NONE) e.Skip();
 }
 
 void AgentDialog::OnClose (wxCloseEvent& e) {
-if (e.CanVeto()) {
+// The conversation is already saved after each exchange; a pending request is abandoned by the session destructor
+if (e.CanVeto() && IsBusy() && wxYES!=wxMessageBox(MSG("AgentCloseBusy"), GetTitle(), wxYES_NO | wxICON_QUESTION, this)) {
 e.Veto();
-Hide();
+return;
 }
-else Destroy();
+AutoSave();
+Destroy();
 }
 
 void AgentDialog::OnContextMenu (wxContextMenuEvent& e) {
@@ -344,7 +499,9 @@ wxMenu menu;
 menu.Append(wxID_COPY);
 menu.Append(wxID_SELECTALL);
 menu.AppendSeparator();
-menu.Append(IDM_AGENT_SAVE, MSG("AgentSave") + "...\tCtrl+S");
+menu.Append(IDM_AGENT_SAVE, MSG("AgentSave") + "\tCtrl+S");
+menu.Append(IDM_AGENT_SAVE_AS, MSG("AgentSaveAs") + "...\tCtrl+Shift+S");
+menu.Append(IDM_AGENT_OPEN, MSG("AgentOpenConversation") + "...\tCtrl+O");
 menu.Append(IDM_AGENT_CLEAR, MSG("AgentClear") + "\tCtrl+Shift+L");
 menu.Append(IDM_AGENT_MODEL, MSG("AgentChooseModel") + "...\tCtrl+M");
 menu.Append(IDM_AGENT_CANCEL, MSG("AgentCancel") + "\tShift+Esc");
@@ -363,6 +520,11 @@ break;
 case IDM_AGENT_MODEL: ShowModelDialog(); break;
 case IDM_AGENT_CANCEL: CancelRequest(); break;
 case IDM_AGENT_SAVE: SaveConversation(); break;
+case IDM_AGENT_SAVE_AS: SaveConversationAs(); break;
+case IDM_AGENT_OPEN:
+if (IsBusy()) wxBell();
+else OpenConversation();
+break;
 case IDM_AGENT_CLOSE: CloseAgent(); break;
 default: e.Skip(); break;
 }}
