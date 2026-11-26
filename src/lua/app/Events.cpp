@@ -50,10 +50,23 @@ lua_pushlightuserdata(L, eptr);
 return 1;
 }
 
+bool UnbindLuaHandler (lua_State* L, int idx, wxEvtHandler& obj) {
+auto eptr = static_cast<LuaEventHandler*>(lua_touserdata(L, idx));
+if (!eptr) return false;
+
+return obj.Disconnect(
+    eptr->id1,
+    eptr->id2,
+    eptr->type,
+    (wxObjectEventFunction)&App::HandleLuaBoundEvent,
+    eptr,
+    &wxGetApp()
+);
+}
+
 int EvtHandlerUnbind (lua_State* L) {
 auto& obj = lua_get<wxEvtHandler&>(L, 1);
-auto eptr = static_cast<LuaEventHandler*>( lua_touserdata(L, 2));
-lua_pushboolean(L, obj.Disconnect(eptr->id1, eptr->id2, eptr->type, (wxObjectEventFunction)&App::HandleLuaBoundEvent, eptr, &wxGetApp()));
+lua_pushboolean(L, UnbindLuaHandler(L, 2, obj));
 return 1;
 }
 
