@@ -11,7 +11,7 @@ static void AppSayText (const wxString& text, std::optional<bool> interrupt) {
 wxGetApp() .SayText(text, interrupt.value_or(false));
 }
 
-static bool AppSimulateControlKey () {
+static bool AppStopSpeech () {
     wxUIActionSimulator simulator;
     bool keyDown = simulator.KeyDown(WXK_CONTROL);
     bool keyUp = simulator.KeyUp(WXK_CONTROL);
@@ -102,9 +102,8 @@ Binding::LuaClass<App>(L, "App")
 //P text: string: nil: text to be spoken by screen readers
 //P interrupt: boolean: false: whether the current speech must be interrupted
 .method("sayText", SYNC(&AppSayText))
-
-//F Simulate a press and release of the Control key
-.method("simulateControlKey", SYNC(&AppSimulateControlKey))
+//F Stop screen reader speech by simulating a press and release of the Control key
+.method("stopSpeech", SYNC(&AppStopSpeech))
 
 //F Set the text of the clipboard
 //P text: string: nil: text to put into the clipboard

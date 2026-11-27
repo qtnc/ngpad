@@ -125,7 +125,16 @@ lua_pushglobaltable(L);
 //T Type representing a text edition zone. 
 Binding::LuaClass<wxTextCtrlIface>(L, "TextEditor")
 .referenceEquals()
+
+//M Bind an event
+//P type: integer: nil: type of event
+//P fromId: integer: nil: minimum ID for which the event must be processed. This parameter can be totally omited.
+//P toId: integer: nil: maximum ID for which the event must be processed. This parameter can be totally omited.
+//P handler: function: nil: event function to call when the event occurrs. The function must always be the last parameter.
+//R handler: an object that can be passed to unbind() in order to cancel the event
 .method("bind", SYNC(&TextEditorBind))
+//M unbind an event previously bount with bind()
+//P handler: handler: nil: event handler to unbind
 .method("unbind", SYNC(&TextEditorUnbind))
 
 //A boolean: tells if the zone is editable
