@@ -64,6 +64,7 @@ struct SyncWrapper<Method> {
 #define SYNC(F) &SyncWrapper<F>::wrapper
 
 struct LuaEventHandler* BindLuaHandler (lua_State* L, int idx, wxEvtHandler& obj, wxEventType type, int id1=wxID_ANY, int id2=wxID_ANY);
+bool UnbindLuaHandler (lua_State* L, int idx, wxEvtHandler& obj);
 
 inline int lua_pushwxstring (lua_State* L, const wxString& str) {  return lua_push(L, U(str)); }
 inline wxString lua_towxstring (lua_State* L, int idx) { return U(lua_get<std::string>(L, idx)); }

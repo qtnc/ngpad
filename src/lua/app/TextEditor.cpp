@@ -5,6 +5,41 @@ LuaRegisterReferenceType(wxTextCtrlIface)
 LuaRegisterDynamicTypeAlias(wxTextAreaBase, wxTextCtrlIface);
 LuaRegisterDynamicTypeAlias(wxTextEntryBase, wxTextCtrlIface);
 
+static TextEditor& GetTextEditor(lua_State* L, int idx) {
+    auto& iface = lua_get<wxTextCtrlIface&>(L, idx);
+    auto* editor = dynamic_cast<TextEditor*>(&iface);
+    if (!editor) throw std::runtime_error("Invalid text editor");
+    return *editor;
+}
+
+static int TextEditorBind(lua_State* L) {
+    auto& editor = GetTextEditor(L, 1);
+    wxEventType type = wxEVT_NULL;
+    int id1 = wxID_ANY;
+    int id2 = wxID_ANY;
+    int idx = 2;
+    if (lua_isinteger(L, idx)) type = lua_get<wxEventType>(L, idx++);
+    if (lua_isinteger(L, idx)) id1 = lua_tointeger(L, idx++);
+    if (lua_isinteger(L, idx)) id2 = lua_tointeger(L, idx++);
+    auto* control = editor.GetControl();
+    if (!control) throw std::runtime_error("Text editor has no control");
+    auto handler = BindLuaHandler(L, -1, *control, type, id1, id2);
+    lua_pushlightuserdata(L, handler);
+    return 1;
+}
+
+static int TextEditorUnbind(lua_State* L) {
+    auto& editor = GetTextEditor(L, 1);
+    auto* control = editor.GetControl();
+    if (!control) {
+        lua_pushboolean(L, false);
+        return 1;
+    }
+    lua_pushboolean(L, UnbindLuaHandler(L, 2, *control));
+    return 1;
+}
+
+
 
 static std::pair<long,long> TextCtrlGetSelection (wxTextCtrlIface& ctl) {
 long start, end;
@@ -89,8 +124,9 @@ export int luaopen_TextEditor (lua_State* L) {
 lua_pushglobaltable(L);
 //T Type representing a text edition zone. 
 Binding::LuaClass<wxTextCtrlIface>(L, "TextEditor")
-.parent<wxEvtHandler>()
 .referenceEquals()
+.method("bind", SYNC(&TextEditorBind))
+.method("unbind", SYNC(&TextEditorUnbind))
 
 //A boolean: tells if the zone is editable
 .boolProperty("editable", SYNC(&wxTextCtrlIface::IsEditable), SYNC(&wxTextCtrlIface::SetEditable))

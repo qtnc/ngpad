@@ -1,4 +1,5 @@
 #include "base.hpp"
+#include <wx/uiaction.h>
 #include "../../app/App.hpp"
 #include "../../app/AbstractDocument.hpp"
 
@@ -8,6 +9,13 @@ LuaRegisterReferenceType(AbstractDocument)
 
 static void AppSayText (const wxString& text, std::optional<bool> interrupt) {
 wxGetApp() .SayText(text, interrupt.value_or(false));
+}
+
+static bool AppSimulateControlKey () {
+    wxUIActionSimulator simulator;
+    bool keyDown = simulator.KeyDown(WXK_CONTROL);
+    bool keyUp = simulator.KeyUp(WXK_CONTROL);
+    return keyDown && keyUp;
 }
 
 static int AppGetDocuments (lua_State* L) {
@@ -94,6 +102,9 @@ Binding::LuaClass<App>(L, "App")
 //P text: string: nil: text to be spoken by screen readers
 //P interrupt: boolean: false: whether the current speech must be interrupted
 .method("sayText", SYNC(&AppSayText))
+
+//F Simulate a press and release of the Control key
+.method("simulateControlKey", SYNC(&AppSimulateControlKey))
 
 //F Set the text of the clipboard
 //P text: string: nil: text to put into the clipboard
