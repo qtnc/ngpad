@@ -68,7 +68,7 @@ virtual wxMsgCatalog* LoadCatalog (const wxString& domain, const wxString& lang)
 auto& stdPaths = wxStandardPaths::Get();
 wxString basePath = wxFileName(stdPaths.GetExecutablePath()).GetPath();
 wxString filename = basePath + "/lang/" + domain + "_" + lang + ".mo";
-if (wxFileName::FileExists(filename)) return wxMsgCatalog::CreateFromFile( U(filename), domain );
+if (wxFileName::FileExists(filename)) return wxMsgCatalog::CreateFromFile(filename, domain );
 else return nullptr;
 }
      virtual wxArrayString GetAvailableTranslations(const wxString& domain) const final override {
