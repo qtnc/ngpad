@@ -22,7 +22,7 @@ Notes de travail pour l'ajout d'agents IA dans l'éditeur. À relire avant de re
 - **Fichier déjà ouvert** : lecture ET écriture dans le contenu de l'éditeur (`FindEditor()`, `ReplaceAndPushUndoState`), sans enregistrement automatique. Fichier fermé : lecture / écriture sur disque (`LoadFile` / `SaveFile` + editorconfig). La confirmation indique lequel des deux cas s'applique.
 - **Messages de l'assistant gardés tels quels** dans l'historique (tous les champs renvoyés, dont le raisonnement), pour les renvoyer sans perte. Raisonnement non affiché. Voir « Avancement ».
 - **Pas de streaming** : on attend la réponse complète.
-- **Markdown** affiché tel quel. Plus tard peut-être une vue web.
+- **Markdown** affiché tel quel. Vue web prévue (voir « Prochaines étapes », point 5).
 - **Configuration** dans `config/agents.json` (application portable). Plus tard éventuellement : recherche dans %APPDATA% d'abord, et variables d'environnement dans la config avec la syntaxe `${env:NOM}`. Pas prioritaire tant qu'on n'utilise pas de vraies clés API.
 - API : format OpenAI `chat/completions` (champ `api` prévu pour d'autres formats plus tard, ex. Anthropic).
 - JSON : nlohmann (déjà présent dans le projet).
@@ -278,6 +278,64 @@ Conçue et implémentée le 2026-11-21. Buts : reprendre une conversation après
 
 `/clear`, `/model [nom]` (sans argument : liste via `GET /models`), `/retry`, `/undo`, `/stop`, `/system`, `/roots`, `/tokens`, `/save`, `/help`.
 Menu contextuel (pas de barre de menus dans le dialogue) : copier, tout sélectionner, enregistrer (Ctrl+S), effacer (Ctrl+Shift+L), changer de modèle (Ctrl+M), annuler (Shift+Échap), fermer l'agent. Navigation entre messages (Ctrl+Haut / Ctrl+Bas).
+
+## Prochaines étapes (décidées le 2026-11-28)
+
+Discutées le 2026-11-28, dans cet ordre (4 et 5 éventuellement inversés). Chacune fera l'objet d'une discussion séparée ; rien n'est commencé.
+
+### 1. Variables de conversation et `contextFiles`
+- Deux moments de substitution :
+  - **au chargement** (inchangé) : `${env:NOM}`, `${file:chemin}` (relatif au dossier de `agents.json`, erreur si illisible : sert aussi aux clés API) ;
+  - **à la création de la conversation** (nouveau) : `${date}`, `${date:format}`, `${lang}`, `${os}`, `${root}`, laissées intactes par `ExpandVariables` (les `${...}` inconnues le sont déjà).
+- `${date}` : format ISO (`2026-11-28`) ; `${date:format}` : `wxDateTime::Format` (`%d.%m.%Y`...).
+- `${lang}` : code de la langue de l'interface (`fr`, ou `fr-CH` si l'application connaît la région ; tiret BCP 47 plutôt que `_`). Un code suffit, les modèles le comprennent.
+- `${os}` : nom et version du système (ex. `Windows 10`), utile pour que `run_command` reçoive des commandes cmd et non bash.
+- `${root}` : chemin absolu de la racine de l'espace de travail, avec `/` comme séparateur (comme les chemins hors racine vus par le modèle).
+- Clé `contextFiles` (tableau, ex. `["AGENTS.md", "CLAUDE.md"]`) : chemins relatifs à la **racine** ; fichier absent ignoré sans erreur ; chaque fichier trouvé est ajouté au prompt système sous un en-tête `Contents of AGENTS.md:` ; taille plafonnée (limite à définir dans `limits`). Concaténée avec `defaults` comme les autres listes.
+  - Décision : **pas** de `${file:}` relatif à la racine ni de priorité « répertoire de travail d'abord » : un dépôt cloné pourrait remplacer un fichier de la config (prompt système, en-têtes). Les deux sources restent séparées.
+- **Prompt système figé** : calculé une fois au premier message (variables + `contextFiles`), enregistré dans le `.chat.json` et **réutilisé** à la réouverture (aujourd'hui il est recalculé à l'ouverture, champ `systemPrompt` « à titre d'information »). Préfixe stable pour le cache, conversation reproductible. `/clear` : recalculé (décidé le 2026-11-28), comme pour une conversation toute neuve.
+- Écartés : `${config:clé}` (pas de cas d'usage), `${cmd:...}`. Possible plus tard : `${lua:expr}` (le parseur actuel s'arrête au premier `}` : il faudrait compter les accolades), `${agent}`, `${model}`.
+
+### 2. Outils définis en Lua
+- Fonction d'enregistrement simple, par exemple :
+  ```lua
+  app.addAgentTool {
+    name = "fetch_url",
+    description = "...",
+    parameters = { url = {type="string", required=true} }, -- converti en schéma JSON
+    readOnly = true,  -- permission intégrée allow, sinon ask
+    handler = function (args, ctx) return "texte" end, -- error() → "Error: ..."
+  }
+  ```
+- Même registre que les outils intégrés (`AgentTools::Register`) : `tools`, `allow` / `ask` / `deny`, `maxResultChars`, « Arrêter l'agent » s'appliquent sans changement.
+- Exécution comme `run_lua` : thread des outils, verrou Lua tenu, bindings `SYNC` sur le thread principal.
+- `ctx` : racine, résolution des chemins (pour respecter `readablePaths` / `writablePaths`), `confirm`.
+- À décider : conflit de nom avec un outil intégré (refus), rechargement des scripts (désenregistrement), délai / boucles infinies (même hook que pour `run_lua`).
+- Les outils discutables restent à l'utilisateur, sous forme de scripts (éventuellement fournis en exemples dans la doc) : lecture/écriture binaire, `fetch_url`, recherche web avec une clé d'API.
+- **Pas en v1** : invoquer un agent depuis Lua et récupérer sa réponse (`app.runAgent{...}`). Fonctionnalité séparée et plus lourde (asynchrone avec callback, sous-agents, risque d'interblocage si appelé depuis un handler d'outil qui tient le verrou Lua pendant que l'agent appelé attend ses propres outils). À reconsidérer plus tard.
+
+### 3. Recherche web côté serveur : documentation seulement
+- Rien à coder : les recherches exécutées par le fournisseur se configurent dans `extraBody` (ex. OpenRouter `"plugins": [{"id": "web"}]`) ou par le choix du modèle. Les citations éventuelles sont déjà gardées dans les messages (champs conservés tels quels).
+- Dans `doc/agents.md` : expliquer qu'un modèle ne cherche jamais sur le web sans outil déclaré ou sans modèle prévu pour ; l'utilisateur se renseigne auprès de son fournisseur pour la configuration exacte. Signaler qu'un outil `fetch_url` côté client (Lua) est un canal d'exfiltration en cas d'injection de prompt : `ask` recommandé.
+- Abandonnés : paramètre `raw` de `read_file` / `write_file`, outils binaires intégrés.
+
+### 4. Images jointes
+- Format OpenAI : `content` devient un tableau de parts (`text`, `image_url` avec `data:image/...;base64,...`). Nécessite un modèle avec vision (à vérifier pour le serveur de test).
+- À adapter (tout suppose aujourd'hui que `content` est une chaîne) : affichage, `transcript`, `Restore` sans transcript, `/retry`, `/undo`, export Markdown, tokens.
+- Taille : base64 enregistré dans le `.chat.json` → plafond et redimensionnement (`wxImage`).
+- Fichiers texte joints : insérés comme texte avec un en-tête (fonctionne avec tous les modèles). PDF (part `file`) : pas pour l'instant.
+- Interface : commande « Joindre... », collage d'image depuis le presse-papiers, annonce du nombre de pièces jointes, liste / retrait avant l'envoi.
+- Plus tard : images renvoyées par un outil (non acceptées dans un message `tool` au format chat ; contournement habituel : message utilisateur ajouté).
+
+### 5. Vue web pour les messages
+- Acquis (tests précédents de l'utilisateur) : vue web IE et Edge (WebView2, paquets déjà téléchargés) utilisables avec les lecteurs d'écran, quand elle occupe toute la fenêtre.
+- **À tester d'abord** avec un dialogue bidon (zone de prompt `wxTextCtrl` + vue web + bouton qui ajoute un faux message avec titres, liste, tableau, code), avec NVDA et JAWS :
+  - passage du focus entre la vue web et les contrôles natifs de la même fenêtre (Tab / Shift+Tab, F6, raccourci explicite), dans les deux sens ; avec WebView2, Tab peut rester piégé dans la page ;
+  - retour au bon endroit après Alt+Tab ;
+  - ajout de contenu par `RunScript` (jamais `SetPage`, qui ramène en haut) : le tampon virtuel du lecteur d'écran est-il mis à jour, la position de lecture conservée ? Annonce par `SayText` ou région `aria-live`.
+- Rendu : Markdown → HTML côté C++ avec **md4c** (petit, MIT, CommonMark + tableaux GFM) plutôt qu'une bibliothèque JS.
+- Le `transcript` garde la source : enregistrement et export `.md` inchangés ; `/undo` / `/retry` = retrait de nœuds DOM ; navigation entre messages = un titre par message (touche H en mode navigation) ; commande « copier en Markdown ».
+- Étape intermédiaire possible : garder le `wxTextCtrl` et ajouter « afficher ce message en HTML » dans le `WebViewDialog` existant.
 
 ## Architecture
 
